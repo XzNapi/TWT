@@ -177,10 +177,12 @@
             <div id="bulk-status" class="status-message"></div>
         </section>
 
-                <!-- MENU BARU: EXCEL CLEANER -->
+                        <!-- MENU BARU: SMART EXCEL CLEANER -->
         <section id="excel-cleaner-section" class="card">
-            <h2>🧹 Excel Cleaner</h2>
-            <p class="section-desc">Hapus semua kolom kecuali kolom Nama dari file Excel/CSV Anda.</p>
+            <h2>🧹 Excel Cleaner (Smart)</h2>
+            <p class="section-desc">
+                Deteksi otomatis multiple kolom nama. Semua nama akan digabungkan menjadi 1 kolom (1 nama = 1 baris).
+            </p>
             
             <div class="cleaner-container">
                 <!-- Upload Area -->
@@ -193,25 +195,37 @@
                         Pilih File
                     </button>
                     <div class="supported-formats">
-                        <small>Format: .csv, .xls, .xlsx</small>
+                        <small>Format: .csv, .xls, .xlsx | Auto-detect: nama, name, peserta, dll</small>
                     </div>
                 </div>
 
                 <!-- Preview & Controls (Hidden by default) -->
                 <div id="cleaner-workspace" class="hidden">
-                    <!-- Step 1: Pilih Kolom Nama -->
+                    
+                    <!-- Smart Detection Info -->
+                    <div class="smart-detection-info" id="smart-detection-info">
+                        <div class="info-box">
+                            <span class="info-icon">💡</span>
+                            <span>Sistem otomatis mendeteksi kolom yang mengandung kata "nama", "name", "peserta", dll.</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 1: Pilih Kolom Nama (Multiple) -->
                     <div class="cleaner-step">
                         <div class="step-header">
                             <span class="step-number">1</span>
-                            <h4>Pilih Kolom Nama</h4>
+                            <h4>Pilih Kolom Nama (Bisa Multiple)</h4>
+                            <div class="step-actions">
+                                <button id="auto-detect-btn" class="btn-secondary btn-small">🔍 Auto Detect</button>
+                                <button id="clear-selection-btn" class="btn-text btn-small">Clear</button>
+                            </div>
                         </div>
                         <div class="step-content">
-                            <label for="name-column-select">Kolom yang akan dipertahankan (hanya kolom Nama):</label>
-                            <select id="name-column-select">
-                                <option value="">-- Pilih kolom nama --</option>
-                            </select>
-                            <div class="preview-hint">
-                                <small>💡 Tips: Pilih kolom yang berisi nama lengkap peserta</small>
+                            <div class="column-select-container" id="name-column-select">
+                                <!-- Checkboxes akan di-generate oleh JS -->
+                            </div>
+                            <div id="selected-columns-info" class="selected-columns-info">
+                                <!-- Info kolom terpilih -->
                             </div>
                         </div>
                     </div>
@@ -220,7 +234,7 @@
                     <div class="cleaner-step">
                         <div class="step-header">
                             <span class="step-number">2</span>
-                            <h4>Preview Data</h4>
+                            <h4>Preview Data (Flattened)</h4>
                         </div>
                         <div class="step-content">
                             <div class="preview-stats">
@@ -233,7 +247,7 @@
                                     <span class="stat-label">Kolom Dihapus</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-value" id="kept-columns">1</span>
+                                    <span class="stat-value" id="kept-columns">0</span>
                                     <span class="stat-label">Kolom Dipertahankan</span>
                                 </div>
                             </div>
@@ -242,8 +256,8 @@
                                 <table id="cleaner-preview-table" class="preview-table">
                                     <thead>
                                         <tr>
-                                            <th>No</th>
-                                            <th>Nama</th>
+                                            <th style="width: 60px;">No</th>
+                                            <th>Nama (Hasil Gabungan)</th>
                                         </tr>
                                     </thead>
                                     <tbody id="cleaner-preview-body">
@@ -252,7 +266,7 @@
                                 </table>
                             </div>
                             <div class="preview-note">
-                                <small>Menampilkan maksimal 10 baris pertama</small>
+                                <small>💡 Setiap nama dari berbagai kolom akan dipisah menjadi baris tersendiri</small>
                             </div>
                         </div>
                     </div>
