@@ -143,6 +143,75 @@
             </div>
             
             <input type="file" id="load-template-input" class="hidden" accept=".json">
+
+                <!-- MODALS -->
+
+    <!-- Library Modal -->
+    <div id="library-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>🖼️ Image Library</h3>
+                <button class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="library-grid" class="library-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Preview Modal -->
+    <div id="qr-preview-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📱 QR Code Preview</h3>
+                <button class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="qr-preview-container"></div>
+                <p class="modal-hint">Sample data: "Sample-Name-001"</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Modal -->
+    <div id="analytics-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📊 Analytics Detail</h3>
+                <button class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="analytics-chart"></div>
+                <div class="analytics-recent">
+                    <h4>Riwayat Terbaru</h4>
+                    <ul id="analytics-history-list"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Mode Modal -->
+    <div id="preview-modal" class="modal-overlay hidden">
+        <div class="modal-content modal-xl">
+            <div class="modal-header">
+                <h3>🔍 Preview Mode</h3>
+                <button class="modal-close-btn" id="close-preview-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="preview-toolbar">
+                    <button id="preview-prev" class="btn-secondary">← Sebelumnya</button>
+                    <span id="preview-counter">1 / 10</span>
+                    <button id="preview-next" class="btn-secondary">Selanjutnya →</button>
+                </div>
+                <div class="preview-canvas-container">
+                    <canvas id="preview-canvas"></canvas>
+                </div>
+                <div class="preview-actions">
+                    <button id="use-preview-data" class="btn-primary">✅ Gunakan Data Ini</button>
+                </div>
+            </div>
+        </div>
+    </div>
             </section>
 
         <section id="bulk-section" class="card">
@@ -302,6 +371,157 @@
 
                 <!-- Status Message -->
                 <div id="cleaner-status" class="status-message hidden"></div>
+            </div>
+        </section>
+
+                <!-- NEW FEATURE 1: IMAGE LIBRARY 📚 -->
+        <section id="image-library-section" class="card">
+            <h2>🖼️ Image Library</h2>
+            <p class="section-desc">Simpan dan gunakan kembali desain favorit Anda.</p>
+            
+            <div class="library-controls">
+                <button id="open-library-btn" class="btn-secondary">📂 Buka Library</button>
+                <button id="clear-library-btn" class="btn-text">🗑️ Kosongkan</button>
+            </div>
+            
+            <div id="image-library-container" class="library-mini-preview"></div>
+        </section>
+
+        <!-- NEW FEATURE 2: QR CODE GENERATOR 📱 -->
+        <section id="qr-code-section" class="card">
+            <h2>📱 QR Code Generator</h2>
+            <p class="section-desc">Tambahkan QR Code unik untuk verifikasi sertifikat.</p>
+            
+            <div class="qr-controls">
+                <div class="control-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="qr-enable">
+                        <span class="toggle-slider"></span>
+                        Aktifkan QR Code
+                    </label>
+                </div>
+                
+                <div class="qr-options" id="qr-options-panel">
+                    <div class="control-row">
+                        <div class="control-item">
+                            <label for="qr-pattern">Pattern Data:</label>
+                            <input type="text" id="qr-pattern" value="{{name}}-{{id}}" placeholder="{{name}}-{{id}}">
+                            <small>Variabel: {{name}}, {{id}}, {{date}}</small>
+                        </div>
+                        
+                        <div class="control-item">
+                            <label for="qr-position">Posisi:</label>
+                            <select id="qr-position">
+                                <option value="bottom-right">Kanan Bawah</option>
+                                <option value="bottom-left">Kiri Bawah</option>
+                                <option value="top-right">Kanan Atas</option>
+                                <option value="top-left">Kiri Atas</option>
+                                <option value="center">Tengah</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-item">
+                            <label for="qr-size">Ukuran (px):</label>
+                            <input type="number" id="qr-size" value="100" min="50" max="300">
+                        </div>
+                    </div>
+                    
+                    <button id="qr-preview-btn" class="btn-secondary">👁️ Preview QR</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- NEW FEATURE 3: ANALYTICS DASHBOARD 📊 -->
+        <section id="analytics-section" class="card">
+            <h2>📊 Analytics Dashboard</h2>
+            <p class="section-desc">Statistik pembuatan sertifikat Anda.</p>
+            
+            <div class="analytics-summary">
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="analytics-total">0</span>
+                        <span class="stat-label">Total Generated</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="analytics-today">0</span>
+                        <span class="stat-label">Hari Ini</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📆</div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="analytics-week">0</span>
+                        <span class="stat-label">Minggu Ini</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="analytics-actions">
+                <button id="view-analytics-btn" class="btn-secondary">📊 Detail Lengkap</button>
+                <button id="export-analytics-btn" class="btn-secondary">💾 Export Data</button>
+                <button id="clear-analytics-btn" class="btn-text">🗑️ Reset</button>
+            </div>
+        </section>
+
+        <!-- NEW FEATURE 4: BATCH STYLE EDITOR 🎨 -->
+        <section id="batch-style-section" class="card">
+            <h2>🎨 Batch Style Editor</h2>
+            <p class="section-desc">Edit style multiple teks sekaligus.</p>
+            
+            <div class="batch-controls">
+                <div class="control-row">
+                    <div class="control-item">
+                        <label for="batch-target">Target:</label>
+                        <select id="batch-target">
+                            <option value="all">Semua Teks</option>
+                            <option value="selected">Teks Terpilih</option>
+                            <option value="unlinked">Teks Tanpa Data Link</option>
+                            <option value="linked">Teks Dengan Data Link</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-item">
+                        <label for="batch-property">Property:</label>
+                        <select id="batch-property">
+                            <option value="fontSize">Ukuran Font</option>
+                            <option value="fontFamily">Font Family</option>
+                            <option value="color">Warna</option>
+                            <option value="bold">Bold</option>
+                            <option value="italic">Italic</option>
+                            <option value="align">Alignment</option>
+                            <option value="transform">Text Transform</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-item">
+                        <label for="batch-value">Nilai Baru:</label>
+                        <input type="text" id="batch-value" placeholder="Contoh: 50, #000000, true">
+                    </div>
+                </div>
+                
+                <div class="batch-actions">
+                    <button id="batch-preview-btn" class="btn-secondary">👁️ Preview 3s</button>
+                    <button id="batch-apply-btn" class="btn-primary">✅ Apply Changes</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- NEW FEATURE 5: PREVIEW MODE 🔍 -->
+        <section id="preview-mode-section" class="card">
+            <h2>🔍 Preview Mode</h2>
+            <p class="section-desc">Preview sertifikat dengan data nyata sebelum generate massal.</p>
+            
+            <div class="preview-controls">
+                <button id="open-preview-btn" class="btn-primary btn-large" disabled>
+                    🔍 Buka Preview Mode
+                </button>
+                <p class="preview-hint">
+                    <small>Upload desain dan data Excel terlebih dahulu</small>
+                </p>
             </div>
         </section>
     </main>
