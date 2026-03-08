@@ -28,172 +28,123 @@
             <input type="file" id="design-upload" accept="image/png,image/jpeg,application/pdf">
         </div>
 
-<section id="editor-section" class="card">
-    <h2>Langkah 2: Atur Bidang Teks</h2>
-    
-    <!-- Tab Navigation -->
-    <div class="editor-tabs">
-        <button class="tab-btn active" data-tab="content-tab">
-            <span class="tab-icon">📝</span>
-            <span class="tab-text">Konten & Posisi</span>
-        </button>
-        <button class="tab-btn" data-tab="font-tab">
-            <span class="tab-icon">🎨</span>
-            <span class="tab-text">Pengaturan Font</span>
-        </button>
-    </div>
+        <section id="editor-section" class="card">
+            <h2>Langkah 2: Atur Bidang Teks</h2>
 
-    <!-- Card 1: Konten & Posisi -->
-    <div id="content-tab" class="editor-card active">
-        <div class="card-inner">
-            <h3 class="card-title">Konten Teks & Posisi</h3>
+            <div id="toolbar">
+                
+                <div class="tool-group">
+                    <label>Kontrol Teks</label>
+                    
+                    <div class="tool-group-grid">
+                        <div id="delete-text-container" class="invisible">
+                            <button id="delete-text-btn" class="btn-danger full-width">Hapus Teks</button>
+                        </div>
+                        <button id="add-text-btn" class="btn-secondary full-width" title="Tambah Teks Baru">T+ Tambah Teks</button>
+                    </div>
+
+                    <div class="tool-group full-width separator">
+                        <label>Tambah Font Kustom (dari File .ttf, .otf):</label>
+                        <div class="font-add-controls">
+                            <input type="text" id="new-font-name" placeholder="Nama Font (cth: 'Roboto Kustom')">
+                            <input type="file" id="new-font-file" accept=".ttf,.otf,.woff,.woff2">
+                        </div>
+                        <button id="add-font-btn" class="btn-secondary full-width">Tambah Font</button>
+                    </div>
+                </div>
+
+                <div id="text-edit-controls" class="hidden"> 
+                    <div class="tool-group-grid separator">
+                        <div class="tool-group">
+                            <label for="data-link-select">Link Data:</label>
+                            <select id="data-link-select"></select>
+                        </div>
+                        <div class="tool-group">
+                            <label for="text-input">Teks Statis:</label>
+                            <input type="text" id="text-input" placeholder="Ketik teks statis...">
+                        </div>
+                    </div>
+                    
+                    <div class="tool-group-grid grid-3-col">
+                        <div class="tool-group">
+                            <label for="font-family">Font:</label>
+                            <select id="font-family">
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Poppins">Poppins</option><option value="Arial">Arial</option>
+                                <option value="sans-serif">Sans Serif</option><option value="Verdana">Verdana</option>
+                            </select>
+                        </div>
+                        <div class="tool-group">
+                            <label for="font-size">Ukuran:</label>
+                            <input type="number" id="font-size" value="50" list="font-sizes-list">
+                            <datalist id="font-sizes-list">
+                                <option value="24"></option><option value="36"></option><option value="48"></option>
+                                <option value="60"></option><option value="72"></option><option value="96"></option>
+                            </datalist>
+                        </div>
+                        
+                        <div class="tool-group">
+                            <label for="text-transform">Gaya Penulisan:</label>
+                            <select id="text-transform">
+                                <option value="none">Normal</option>
+                                <option value="uppercase">Uppercase</option>
+                                <option value="titlecase">Titlecase</option>
+                            </select>
+                        </div>
+                        
+                    </div>
+                    
+                    <div class="tool-group-grid grid-3-col">
+                        <div class="tool-group">
+                            <label>Warna:</label>
+                            <div class="color-controls">
+                                <input type="color" id="font-color" value="#000000">
+                                <input type="text" id="font-color-hex" value="#000000" maxlength="7">
+                                <button id="color-picker-btn" title="Ambil warna dari desain">🎨</button>
+                            </div>
+                        </div>
+                        <div class="tool-group">
+                            <label>Style:</label>
+                            <div class="style-controls">
+                                <button id="font-bold" class="style-btn"><b>B</b></button>
+                                <button id="font-italic" class="style-btn"><i>I</i></button>
+                            </div>
+                        </div>
+                        <div class="tool-group">
+                            <label>Rata:</label>
+                            <select id="font-align">
+                                <option value="center">Tengah</option><option value="left">Kiri</option>
+                                <option value="right">Kanan</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="tool-group full-width separator">
+                        <label>Geser Teks (Presisi):</label>
+                        <div id="position-controls">
+                            <button id="move-up" title="Geser Atas">↑</button>
+                            <button id="move-down" title="Geser Bawah">↓</button>
+                            <button id="move-left" title="Geser Kiri">←</button>
+                            <button id="move-right" title="Geser Kanan">→</button>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+
+            <div id="canvas-container">
+                <canvas id="sertifikat-canvas"></canvas>
+            </div>
             
-            <!-- Add/Delete Text -->
-            <div class="toolbar-section">
-                <div class="toolbar-grid-2">
-                    <div id="delete-text-container" class="invisible">
-                        <button id="delete-text-btn" class="btn-danger full-width">
-                            🗑️ Hapus Teks
-                        </button>
-                    </div>
-                    <button id="add-text-btn" class="btn-secondary full-width">
-                        ➕ Tambah Teks
-                    </button>
-                </div>
+            <div class="action-buttons" style="display: flex; justify-content: center; gap: 10px;">
+                <button id="save-template-btn" class="btn-secondary">Simpan Template</button>
+                <button id="load-template-btn" class="btn-secondary">Muat Template</button>
+                <button id="download-btn" class="btn-primary">Download (Single PNG)</button>
             </div>
+            
+            <input type="file" id="load-template-input" class="hidden" accept=".json">
+            </section>
 
-            <!-- Text Edit Controls -->
-            <div id="text-edit-controls" class="hidden">
-                <!-- Link Data -->
-                <div class="toolbar-field">
-                    <label for="data-link-select">🔗 Link Data:</label>
-                    <select id="data-link-select"></select>
-                </div>
-
-                <!-- Teks Statis -->
-                <div class="toolbar-field">
-                    <label for="text-input">✏️ Teks Statis:</label>
-                    <input type="text" id="text-input" placeholder="Ketik teks statis...">
-                </div>
-
-                <!-- Gaya Penulisan -->
-                <div class="toolbar-field">
-                    <label for="text-transform">📝 Gaya Penulisan:</label>
-                    <select id="text-transform">
-                        <option value="none">Normal</option>
-                        <option value="uppercase">UPPERCASE</option>
-                        <option value="titlecase">Title Case</option>
-                    </select>
-                </div>
-
-                <!-- Warna -->
-                <div class="toolbar-field">
-                    <label>🎨 Warna:</label>
-                    <div class="color-controls">
-                        <input type="color" id="font-color" value="#000000">
-                        <input type="text" id="font-color-hex" value="#000000" maxlength="7">
-                        <button id="color-picker-btn" title="Ambil warna dari desain">🎨</button>
-                    </div>
-                </div>
-
-                <!-- Style -->
-                <div class="toolbar-field">
-                    <label>💎 Style:</label>
-                    <div class="style-controls">
-                        <button id="font-bold" class="style-btn"><b>B</b></button>
-                        <button id="font-italic" class="style-btn"><i>I</i></button>
-                    </div>
-                </div>
-
-                <!-- Rata -->
-                <div class="toolbar-field">
-                    <label for="font-align">📐 Rata:</label>
-                    <select id="font-align">
-                        <option value="center">Tengah</option>
-                        <option value="left">Kiri</option>
-                        <option value="right">Kanan</option>
-                    </select>
-                </div>
-
-                <!-- Posisi Teks -->
-                <div class="toolbar-section position-section">
-                    <label class="section-label">🎯 Geser Teks (Presisi):</label>
-                    <div class="position-grid" id="position-controls">
-                        <button id="move-up" title="Geser Atas">↑</button>
-                        <button id="move-down" title="Geser Bawah">↓</button>
-                        <button id="move-left" title="Geser Kiri">←</button>
-                        <button id="move-right" title="Geser Kanan">→</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Card 2: Pengaturan Font -->
-    <div id="font-tab" class="editor-card">
-        <div class="card-inner">
-            <h3 class="card-title">Pengaturan Font</h3>
-
-            <!-- Font Family -->
-            <div class="toolbar-field">
-                <label for="font-family">🔤 Font Family:</label>
-                <select id="font-family">
-                    <option value="Times New Roman">Times New Roman</option>
-                    <option value="Poppins">Poppins</option>
-                    <option value="Arial">Arial</option>
-                    <option value="sans-serif">Sans Serif</option>
-                    <option value="Verdana">Verdana</option>
-                </select>
-            </div>
-
-            <!-- Font Size -->
-            <div class="toolbar-field">
-                <label for="font-size">📏 Ukuran Font:</label>
-                <input type="number" id="font-size" value="50" list="font-sizes-list">
-                <datalist id="font-sizes-list">
-                    <option value="24"></option>
-                    <option value="36"></option>
-                    <option value="48"></option>
-                    <option value="60"></option>
-                    <option value="72"></option>
-                    <option value="96"></option>
-                </datalist>
-            </div>
-
-            <!-- Custom Font -->
-            <div class="toolbar-section custom-font-section">
-                <h4 class="subsection-title">➕ Tambah Font Kustom</h4>
-                <div class="font-add-controls">
-                    <input type="text" id="new-font-name" placeholder="Nama Font (cth: 'Roboto')">
-                    <input type="file" id="new-font-file" accept=".ttf,.otf,.woff,.woff2">
-                </div>
-                <button id="add-font-btn" class="btn-secondary btn-sm full-width">
-                    Tambah Font
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Preview Canvas -->
-    <div class="canvas-wrapper">
-        <div class="canvas-header">
-            <span>🖼️ Preview Sertifikat</span>
-        </div>
-        <div id="canvas-container">
-            <canvas id="sertifikat-canvas"></canvas>
-        </div>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="editor-action-bar">
-        <button id="save-template-btn" class="btn-secondary">💾 Simpan Template</button>
-        <button id="load-template-btn" class="btn-secondary">📂 Muat Template</button>
-        <button id="download-btn" class="btn-primary">⬇️ Download PNG</button>
-    </div>
-    
-    <input type="file" id="load-template-input" class="hidden" accept=".json">
-</section>
-        
         <section id="bulk-section" class="card">
             <h2>Langkah 3: Otomatisasi Massal</h2>
             <div class="bulk-options">
@@ -224,6 +175,120 @@
             </div>
             
             <div id="bulk-status" class="status-message"></div>
+        </section>
+
+                <!-- MENU BARU: EXCEL CLEANER -->
+        <section id="excel-cleaner-section" class="card">
+            <h2>🧹 Excel Cleaner</h2>
+            <p class="section-desc">Hapus semua kolom kecuali kolom Nama dari file Excel/CSV Anda.</p>
+            
+            <div class="cleaner-container">
+                <!-- Upload Area -->
+                <div class="cleaner-upload-area" id="cleaner-drop-zone">
+                    <div class="upload-icon">📁</div>
+                    <h3>Upload File Excel atau CSV</h3>
+                    <p>Drag & drop file di sini atau klik untuk browse</p>
+                    <input type="file" id="cleaner-file-input" accept=".csv,.xls,.xlsx" hidden>
+                    <button class="btn-secondary" onclick="document.getElementById('cleaner-file-input').click()">
+                        Pilih File
+                    </button>
+                    <div class="supported-formats">
+                        <small>Format: .csv, .xls, .xlsx</small>
+                    </div>
+                </div>
+
+                <!-- Preview & Controls (Hidden by default) -->
+                <div id="cleaner-workspace" class="hidden">
+                    <!-- Step 1: Pilih Kolom Nama -->
+                    <div class="cleaner-step">
+                        <div class="step-header">
+                            <span class="step-number">1</span>
+                            <h4>Pilih Kolom Nama</h4>
+                        </div>
+                        <div class="step-content">
+                            <label for="name-column-select">Kolom yang akan dipertahankan (hanya kolom Nama):</label>
+                            <select id="name-column-select">
+                                <option value="">-- Pilih kolom nama --</option>
+                            </select>
+                            <div class="preview-hint">
+                                <small>💡 Tips: Pilih kolom yang berisi nama lengkap peserta</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Preview Data -->
+                    <div class="cleaner-step">
+                        <div class="step-header">
+                            <span class="step-number">2</span>
+                            <h4>Preview Data</h4>
+                        </div>
+                        <div class="step-content">
+                            <div class="preview-stats">
+                                <div class="stat-item">
+                                    <span class="stat-value" id="total-rows">0</span>
+                                    <span class="stat-label">Total Baris</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value" id="removed-columns">0</span>
+                                    <span class="stat-label">Kolom Dihapus</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-value" id="kept-columns">1</span>
+                                    <span class="stat-label">Kolom Dipertahankan</span>
+                                </div>
+                            </div>
+                            
+                            <div class="preview-table-container">
+                                <table id="cleaner-preview-table" class="preview-table">
+                                    <thead>
+                                        <tr>
+                                            <th>No</th>
+                                            <th>Nama</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cleaner-preview-body">
+                                        <!-- Data preview akan diisi di sini -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="preview-note">
+                                <small>Menampilkan maksimal 10 baris pertama</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Download -->
+                    <div class="cleaner-step">
+                        <div class="step-header">
+                            <span class="step-number">3</span>
+                            <h4>Download Hasil</h4>
+                        </div>
+                        <div class="step-content">
+                            <div class="download-options">
+                                <div class="option-group">
+                                    <label for="output-format">Format Output:</label>
+                                    <select id="output-format">
+                                        <option value="xlsx">Excel (.xlsx)</option>
+                                        <option value="csv">CSV (.csv)</option>
+                                    </select>
+                                </div>
+                                <div class="option-group">
+                                    <label for="output-filename">Nama File:</label>
+                                    <input type="text" id="output-filename" placeholder="nama_bersih" value="nama_bersih">
+                                </div>
+                            </div>
+                            
+                            <button id="download-clean-btn" class="btn-primary btn-large">
+                                <span class="btn-icon">💾</span>
+                                Download File Bersih
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Message -->
+                <div id="cleaner-status" class="status-message hidden"></div>
+            </div>
         </section>
     </main>
 
