@@ -1,5 +1,5 @@
 // ==========================================
-// CERTIFICATE GENERATOR + EXCEL CLEANER
+// CERTIFICATE GENERATOR + EXCEL CLEANER (SMART VERSION)
 // Full JavaScript Implementation
 // ==========================================
 
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Certificate variables
     let canvas = document.getElementById('sertifikat-canvas');
-    let ctx = canvas.getContext('2d');
+    let ctx = canvas ? canvas.getContext('2d') : null;
     let certificateImage = null;
     let textElements = [];
     let selectedTextIndex = -1;
@@ -19,10 +19,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let dragOffset = { x: 0, y: 0 };
     let scale = 1;
     
-    // Excel Cleaner variables
+    // Excel Cleaner variables - SMART VERSION
     let excelData = null;
     let excelFileName = '';
-    let selectedNameColumn = -1;
+    let selectedNameColumns = []; // Array untuk multiple kolom
+    let detectedNameColumns = []; // Kolom yang terdeteksi otomatis
 
     // ==========================================
     // UTILITY FUNCTIONS
@@ -43,6 +44,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function generateId() {
         return 'text_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Fungsi untuk mendeteksi apakah header adalah kolom nama
+    function isNameColumn(header) {
+        if (!header) return false;
+        const headerStr = String(header).toLowerCase().trim();
+        
+        // Keywords yang menunjukkan kolom nama
+        const nameKeywords = [
+            'nama', 'name', 'peserta', 'participant', 'siswa', 'student',
+            'mahasiswa', 'karyawan', 'employee', 'pegawai', 'staff',
+            'user', 'pengguna', 'member', 'anggota', 'person', 'orang',
+            'fullname', 'full name', 'nama lengkap', 'lengkap',
+            'first name', 'last name', 'nama depan', 'nama belakang',
+            'nama1', 'nama2', 'nama3', 'nama_1', 'nama_2', 'nama_3',
+            'name1', 'name2', 'name3', 'name_1', 'name_2', 'name_3',
+            'peserta1', 'peserta2', 'peserta3', 'participant1', 'participant2'
+        ];
+        
+        return nameKeywords.some(keyword => headerStr.includes(keyword));
+    }
+
+    // Fungsi untuk membersihkan nama
+    function cleanName(name) {
+        if (!name) return '';
+        return String(name).trim().replace(/\s+/g, ' ');
     }
 
     // ==========================================
@@ -112,6 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initCanvas() {
+        if (!canvas || !certificateImage) return;
         canvas.width = certificateImage.width;
         canvas.height = certificateImage.height;
         scale = Math.min(800 / canvas.width, 600 / canvas.height, 1);
@@ -121,9 +149,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showEditor() {
-        uploadSection.style.display = 'none';
-        editorSection.style.display = 'block';
-        bulkSection.style.display = 'block';
+        if (uploadSection) uploadSection.style.display = 'none';
+        if (editorSection) editorSection.style.display = 'block';
+        if (bulkSection) bulkSection.style.display = 'block';
         addDefaultText();
     }
 
@@ -150,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==========================================
     
     function redrawCanvas() {
-        if (!certificateImage) return;
+        if (!ctx || !certificateImage) return;
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(certificateImage, 0, 0);
@@ -378,13 +406,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateToolbar() {
         if (selectedTextIndex === -1) {
-            textEditControls.classList.add('hidden');
-            deleteTextContainer.classList.add('invisible');
+            if (textEditControls) textEditControls.classList.add('hidden');
+            if (deleteTextContainer) deleteTextContainer.classList.add('invisible');
             return;
         }
         
-        textEditControls.classList.remove('hidden');
-        deleteTextContainer.classList.remove('invisible');
+        if (textEditControls) textEditControls.classList.remove('hidden');
+        if (deleteTextContainer) deleteTextContainer.classList.remove('invisible');
         updateToolbarValues();
     }
 
@@ -392,16 +420,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedTextIndex === -1) return;
         
         const el = textElements[selectedTextIndex];
-        textInput.value = el.text;
-        fontFamily.value = el.fontFamily;
-        fontSize.value = el.fontSize;
-        fontColor.value = el.color;
-        fontColorHex.value = el.color;
-        fontAlign.value = el.align;
-        textTransform.value = el.transform || 'none';
+        if (textInput) textInput.value = el.text;
+        if (fontFamily) fontFamily.value = el.fontFamily;
+        if (fontSize) fontSize.value = el.fontSize;
+        if (fontColor) fontColor.value = el.color;
+        if (fontColorHex) fontColorHex.value = el.color;
+        if (fontAlign) fontAlign.value = el.align;
+        if (textTransform) textTransform.value = el.transform || 'none';
         
-        fontBold.classList.toggle('active', el.bold);
-        fontItalic.classList.toggle('active', el.italic);
+        if (fontBold) fontBold.classList.toggle('active', el.bold);
+        if (fontItalic) fontItalic.classList.toggle('active', el.italic);
     }
 
     // Event listeners for text editing
@@ -436,7 +464,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fontColor.addEventListener('input', function() {
             if (selectedTextIndex !== -1) {
                 textElements[selectedTextIndex].color = this.value;
-                fontColorHex.value = this.value;
+                if (fontColorHex) fontColorHex.value = this.value;
                 redrawCanvas();
             }
         });
@@ -446,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fontColorHex.addEventListener('change', function() {
             if (selectedTextIndex !== -1) {
                 textElements[selectedTextIndex].color = this.value;
-                fontColor.value = this.value;
+                if (fontColor) fontColor.value = this.value;
                 redrawCanvas();
             }
         });
@@ -519,8 +547,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (addFontBtn) {
         addFontBtn.addEventListener('click', function() {
-            const name = newFontName.value.trim();
-            const file = newFontFile.files[0];
+            const name = newFontName ? newFontName.value.trim() : '';
+            const file = newFontFile ? newFontFile.files[0] : null;
             
             if (!name || !file) {
                 alert('Masukkan nama font dan pilih file font (.ttf, .otf, .woff)');
@@ -536,10 +564,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     const option = document.createElement('option');
                     option.value = name;
                     option.textContent = name;
-                    fontFamily.appendChild(option);
+                    if (fontFamily) fontFamily.appendChild(option);
                     
-                    newFontName.value = '';
-                    newFontFile.value = '';
+                    if (newFontName) newFontName.value = '';
+                    if (newFontFile) newFontFile.value = '';
                     alert('Font berhasil ditambahkan!');
                 });
             };
@@ -559,8 +587,8 @@ document.addEventListener('DOMContentLoaded', function() {
         saveTemplateBtn.addEventListener('click', function() {
             const template = {
                 textElements: textElements,
-                canvasWidth: canvas.width,
-                canvasHeight: canvas.height,
+                canvasWidth: canvas ? canvas.width : 0,
+                canvasHeight: canvas ? canvas.height : 0,
                 version: '1.0'
             };
             
@@ -576,7 +604,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (loadTemplateBtn) {
         loadTemplateBtn.addEventListener('click', function() {
-            loadTemplateInput.click();
+            if (loadTemplateInput) loadTemplateInput.click();
         });
     }
 
@@ -663,7 +691,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (fetchGdocBtn) {
         fetchGdocBtn.addEventListener('click', async function() {
-            const url = gdocLink.value.trim();
+            const url = gdocLink ? gdocLink.value.trim() : '';
             if (!url) {
                 showStatus('bulk-status', 'Masukkan link Google Sheet', 'error');
                 return;
@@ -694,26 +722,20 @@ document.addEventListener('DOMContentLoaded', function() {
         bulkData = data.slice(1);
         
         // Populate data link dropdown
-        dataLinkSelect.innerHTML = '<option value="">-- Tidak dihubungkan --</option>';
-        bulkHeaders.forEach((header, index) => {
-            const option = document.createElement('option');
-            option.value = header;
-            option.textContent = header;
-            dataLinkSelect.appendChild(option);
-        });
+        if (dataLinkSelect) {
+            dataLinkSelect.innerHTML = '<option value="">-- Tidak dihubungkan --</option>';
+            bulkHeaders.forEach((header, index) => {
+                const option = document.createElement('option');
+                option.value = header;
+                option.textContent = header;
+                dataLinkSelect.appendChild(option);
+            });
+        }
         
         // Enable generate button
         if (generateBulkBtn) {
             generateBulkBtn.disabled = false;
         }
-        
-        // Update text elements with data link options
-        updateDataLinks();
-    }
-
-    function updateDataLinks() {
-        // This function updates available data links in the toolbar
-        // Already handled by populating dataLinkSelect
     }
 
     if (dataLinkSelect) {
@@ -731,8 +753,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            const format = bulkFormat.value;
-            const asZip = downloadAsZip.checked;
+            const format = bulkFormat ? bulkFormat.value : 'png';
+            const asZip = downloadAsZip ? downloadAsZip.checked : true;
             
             generateBulkBtn.disabled = true;
             generateBulkBtn.textContent = 'Memproses...';
@@ -765,7 +787,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const base64Data = dataUrl.split(',')[1];
             folder.file(`sertifikat_${i + 1}.png`, base64Data, {base64: true});
             
-            // Update progress
             if (i % 10 === 0) {
                 showStatus('bulk-status', `Memproses... ${i + 1}/${bulkData.length}`, 'info');
                 await new Promise(r => setTimeout(r, 10));
@@ -815,7 +836,6 @@ document.addEventListener('DOMContentLoaded', function() {
             link.download = 'sertifikat-pdf.zip';
             link.click();
         } else {
-            // Single PDF with multiple pages
             const pdf = new jsPDF({
                 orientation: canvas.width > canvas.height ? 'l' : 'p',
                 unit: 'px',
@@ -840,15 +860,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function generateCertificateWithData(rowData) {
-        // Clear and redraw base
+        if (!ctx || !certificateImage) return;
+        
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(certificateImage, 0, 0);
         
-        // Draw each text element with data substitution
         textElements.forEach(textEl => {
             let displayText = textEl.text;
             
-            // Substitute data link
             if (textEl.dataLink) {
                 const colIndex = bulkHeaders.indexOf(textEl.dataLink);
                 if (colIndex !== -1 && rowData[colIndex]) {
@@ -856,7 +875,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Apply text transformation
             if (textEl.transform === 'uppercase') {
                 displayText = displayText.toUpperCase();
             } else if (textEl.transform === 'titlecase') {
@@ -865,7 +883,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             }
             
-            // Draw text
             ctx.save();
             let fontStyle = '';
             if (textEl.bold) fontStyle += 'bold ';
@@ -904,7 +921,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
-    // SECTION 8: EXCEL CLEANER
+    // SECTION 8: SMART EXCEL CLEANER
     // ==========================================
     
     const cleanerDropZone = document.getElementById('cleaner-drop-zone');
@@ -914,9 +931,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const cleanerPreviewBody = document.getElementById('cleaner-preview-body');
     const totalRowsEl = document.getElementById('total-rows');
     const removedColsEl = document.getElementById('removed-columns');
+    const keptColsEl = document.getElementById('kept-columns');
     const downloadCleanBtn = document.getElementById('download-clean-btn');
     const outputFormat = document.getElementById('output-format');
     const outputFilename = document.getElementById('output-filename');
+    const autoDetectBtn = document.getElementById('auto-detect-btn');
+    const clearSelectionBtn = document.getElementById('clear-selection-btn');
+    const selectedColumnsInfo = document.getElementById('selected-columns-info');
 
     // Drag & Drop handlers
     if (cleanerDropZone) {
@@ -948,7 +969,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleCleanerFile(file) {
-        // Validasi format
         const validFormats = ['.csv', '.xls', '.xlsx'];
         const ext = '.' + file.name.split('.').pop().toLowerCase();
         
@@ -979,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (cleanerDropZone) cleanerDropZone.classList.add('has-file');
                 if (cleanerWorkspace) cleanerWorkspace.classList.remove('hidden');
-                showStatus('cleaner-status', '✅ File berhasil dimuat! Silakan pilih kolom nama.', 'success');
+                showStatus('cleaner-status', '✅ File berhasil dimuat! Kolom nama otomatis terdeteksi.', 'success');
                 
             } catch (err) {
                 showStatus('cleaner-status', '❌ Error membaca file: ' + err.message, 'error');
@@ -993,69 +1013,182 @@ document.addEventListener('DOMContentLoaded', function() {
         const headers = data[0];
         const totalCols = headers.length;
         
-        // Populate column select
-        if (nameColumnSelect) {
-            nameColumnSelect.innerHTML = '<option value="">-- Pilih kolom nama --</option>';
-            headers.forEach((header, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = header || `Kolom ${index + 1}`;
-                nameColumnSelect.appendChild(option);
-            });
-        }
-
+        // Reset selected columns
+        selectedNameColumns = [];
+        detectedNameColumns = [];
+        
+        // Detect all name columns automatically
+        headers.forEach((header, index) => {
+            if (isNameColumn(header)) {
+                detectedNameColumns.push({
+                    index: index,
+                    header: header || `Kolom ${index + 1}`
+                });
+                selectedNameColumns.push(index);
+            }
+        });
+        
+        // Populate column select with checkboxes (multiple selection)
+        populateColumnSelect(headers);
+        
         // Update stats
-        if (totalRowsEl) totalRowsEl.textContent = data.length - 1; // minus header
-        if (removedColsEl) removedColsEl.textContent = totalCols - 1;
-
-        // Column select change handler
-        if (nameColumnSelect) {
-            nameColumnSelect.onchange = function() {
-                if (this.value === '') {
-                    selectedNameColumn = -1;
-                    return;
-                }
-                selectedNameColumn = parseInt(this.value);
-                updateCleanerPreview(selectedNameColumn, data);
-            };
-        }
-
-        // Auto-select if "nama" or "name" found
-        const nameIndex = headers.findIndex(h => 
-            h && (h.toString().toLowerCase().includes('nama') || 
-                  h.toString().toLowerCase().includes('name'))
-        );
-        if (nameIndex !== -1 && nameColumnSelect) {
-            nameColumnSelect.value = nameIndex;
-            selectedNameColumn = nameIndex;
-            updateCleanerPreview(nameIndex, data);
+        updateCleanerStats(totalCols);
+        
+        // Auto-select detected columns
+        updateColumnSelection();
+        
+        // Update preview if columns detected
+        if (selectedNameColumns.length > 0) {
+            updateCleanerPreview();
+            updateSelectedColumnsInfo();
         }
     }
 
-    function updateCleanerPreview(nameColIndex, data) {
-        if (!cleanerPreviewBody) return;
+    function populateColumnSelect(headers) {
+        if (!nameColumnSelect) return;
+        
+        nameColumnSelect.innerHTML = '';
+        
+        // Add "Select All" option
+        const selectAllDiv = document.createElement('div');
+        selectAllDiv.className = 'column-option select-all';
+        selectAllDiv.innerHTML = `
+            <label class="checkbox-label">
+                <input type="checkbox" id="select-all-columns" ${selectedNameColumns.length === headers.length ? 'checked' : ''}>
+                <span class="checkmark"></span>
+                <strong>Pilih Semua Kolom</strong>
+            </label>
+        `;
+        nameColumnSelect.appendChild(selectAllDiv);
+        
+        // Add individual columns
+        headers.forEach((header, index) => {
+            const isDetected = detectedNameColumns.some(d => d.index === index);
+            const isSelected = selectedNameColumns.includes(index);
+            
+            const div = document.createElement('div');
+            div.className = 'column-option' + (isDetected ? ' detected' : '');
+            div.innerHTML = `
+                <label class="checkbox-label">
+                    <input type="checkbox" value="${index}" ${isSelected ? 'checked' : ''} data-detected="${isDetected}">
+                    <span class="checkmark"></span>
+                    <span class="column-name">${header || `Kolom ${index + 1}`}</span>
+                    ${isDetected ? '<span class="detected-badge">🎯 Terdeteksi</span>' : ''}
+                </label>
+            `;
+            nameColumnSelect.appendChild(div);
+        });
+        
+        // Add event listeners
+        const selectAllCheckbox = document.getElementById('select-all-columns');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
+                checkboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateSelectedColumnsFromCheckboxes();
+            });
+        }
+        
+        const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', function() {
+                updateSelectedColumnsFromCheckboxes();
+            });
+        });
+    }
+
+    function updateSelectedColumnsFromCheckboxes() {
+        selectedNameColumns = [];
+        const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
+        checkboxes.forEach(cb => {
+            if (cb.checked) {
+                selectedNameColumns.push(parseInt(cb.value));
+            }
+        });
+        
+        updateCleanerPreview();
+        updateSelectedColumnsInfo();
+        updateCleanerStats(excelData[0].length);
+    }
+
+    function updateColumnSelection() {
+        const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
+        checkboxes.forEach(cb => {
+            cb.checked = selectedNameColumns.includes(parseInt(cb.value));
+        });
+    }
+
+    function updateCleanerStats(totalCols) {
+        if (totalRowsEl) totalRowsEl.textContent = excelData.length - 1;
+        if (removedColsEl) removedColsEl.textContent = totalCols - selectedNameColumns.length;
+        if (keptColsEl) keptColsEl.textContent = selectedNameColumns.length;
+    }
+
+    function updateSelectedColumnsInfo() {
+        if (!selectedColumnsInfo) return;
+        
+        if (selectedNameColumns.length === 0) {
+            selectedColumnsInfo.innerHTML = '<span class="warning">⚠️ Pilih minimal 1 kolom</span>';
+            return;
+        }
+        
+        const headers = excelData[0];
+        const selectedNames = selectedNameColumns.map(idx => headers[idx] || `Kolom ${idx + 1}`);
+        
+        selectedColumnsInfo.innerHTML = `
+            <strong>${selectedNameColumns.length} kolom dipilih:</strong><br>
+            <small>${selectedNames.join(', ')}</small>
+        `;
+    }
+
+    function updateCleanerPreview() {
+        if (!cleanerPreviewBody || !excelData || selectedNameColumns.length === 0) {
+            if (cleanerPreviewBody) cleanerPreviewBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Pilih kolom untuk melihat preview</td></tr>';
+            return;
+        }
         
         cleanerPreviewBody.innerHTML = '';
         
         // Show max 10 rows
-        const rowsToShow = Math.min(data.length - 1, 10);
+        const rowsToShow = Math.min(excelData.length - 1, 10);
         
         for (let i = 1; i <= rowsToShow; i++) {
-            const row = data[i];
-            const tr = document.createElement('tr');
-            const nameValue = row[nameColIndex] || '-';
-            tr.innerHTML = `
-                <td>${i}</td>
-                <td>${escapeHtml(String(nameValue))}</td>
-            `;
-            cleanerPreviewBody.appendChild(tr);
+            const row = excelData[i];
+            
+            // Collect all names from selected columns (non-empty)
+            const names = [];
+            selectedNameColumns.forEach(colIndex => {
+                const name = cleanName(row[colIndex]);
+                if (name) names.push(name);
+            });
+            
+            // Flatten: each name gets its own row
+            if (names.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${i}</td>
+                    <td class="empty-cell">- (kosong)</td>
+                `;
+                cleanerPreviewBody.appendChild(tr);
+            } else {
+                names.forEach((name, nameIdx) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${i}${names.length > 1 ? `.${nameIdx + 1}` : ''}</td>
+                        <td>${escapeHtml(name)}</td>
+                    `;
+                    cleanerPreviewBody.appendChild(tr);
+                });
+            }
         }
 
-        if (data.length > 11) {
+        if (excelData.length > 11) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td colspan="2" style="text-align: center; color: #6c757d; font-style: italic;">
-                    ... dan ${data.length - 11} baris lainnya
+                    ... dan ${excelData.length - 11} baris lainnya
                 </td>
             `;
             cleanerPreviewBody.appendChild(tr);
@@ -1068,26 +1201,76 @@ document.addEventListener('DOMContentLoaded', function() {
         return div.innerHTML;
     }
 
+    // Auto detect button
+    if (autoDetectBtn) {
+        autoDetectBtn.addEventListener('click', function() {
+            if (!excelData) return;
+            
+            const headers = excelData[0];
+            selectedNameColumns = [];
+            
+            headers.forEach((header, index) => {
+                if (isNameColumn(header)) {
+                    selectedNameColumns.push(index);
+                }
+            });
+            
+            updateColumnSelection();
+            updateCleanerPreview();
+            updateSelectedColumnsInfo();
+            updateCleanerStats(headers.length);
+            
+            showStatus('cleaner-status', `✅ ${selectedNameColumns.length} kolom nama terdeteksi otomatis`, 'success');
+        });
+    }
+
+    // Clear selection button
+    if (clearSelectionBtn) {
+        clearSelectionBtn.addEventListener('click', function() {
+            selectedNameColumns = [];
+            const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateCleanerPreview();
+            updateSelectedColumnsInfo();
+            updateCleanerStats(excelData[0].length);
+        });
+    }
+
     // Download handler for cleaner
     if (downloadCleanBtn) {
         downloadCleanBtn.addEventListener('click', function() {
-            if (!excelData || selectedNameColumn === -1) {
-                showStatus('cleaner-status', '❌ Pilih kolom nama terlebih dahulu', 'error');
+            if (!excelData || selectedNameColumns.length === 0) {
+                showStatus('cleaner-status', '❌ Pilih minimal 1 kolom nama', 'error');
                 return;
             }
 
             const format = outputFormat ? outputFormat.value : 'xlsx';
             const filename = outputFilename ? (outputFilename.value || 'nama_bersih') : 'nama_bersih';
             
-            // Create clean data (only name column)
+            // Create clean data - SMART: flatten all names into single column
             const cleanData = [];
             cleanData.push(['Nama']); // Header
             
+            let totalNames = 0;
+            
             for (let i = 1; i < excelData.length; i++) {
                 const row = excelData[i];
-                const nameValue = row[selectedNameColumn] || '';
-                if (String(nameValue).trim() !== '') {
-                    cleanData.push([nameValue]);
+                
+                // Collect all names from selected columns
+                const names = [];
+                selectedNameColumns.forEach(colIndex => {
+                    const name = cleanName(row[colIndex]);
+                    if (name) names.push(name);
+                });
+                
+                // Add each name as separate row (flattened)
+                if (names.length === 0) {
+                    cleanData.push(['']); // Keep empty row for structure
+                } else {
+                    names.forEach(name => {
+                        cleanData.push([name]);
+                        totalNames++;
+                    });
                 }
             }
 
@@ -1098,13 +1281,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Set column width
             ws['!cols'] = [{wch: 50}];
             
-            XLSX.utils.book_append_sheet(wb, ws, "Nama");
+            XLSX.utils.book_append_sheet(wb, ws, "Nama Bersih");
 
             // Download
             const ext = format === 'csv' ? '.csv' : '.xlsx';
             try {
                 XLSX.writeFile(wb, filename + ext);
-                showStatus('cleaner-status', `✅ File berhasil didownload: ${filename}${ext}`, 'success');
+                showStatus('cleaner-status', `✅ ${totalNames} nama berhasil diekspor ke ${filename}${ext}`, 'success');
             } catch (err) {
                 showStatus('cleaner-status', '❌ Error download: ' + err.message, 'error');
             }
@@ -1122,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', function() {
         colorPickerBtn.addEventListener('click', function() {
             isPickingColor = !isPickingColor;
             this.classList.toggle('active', isPickingColor);
-            canvas.style.cursor = isPickingColor ? 'crosshair' : 'default';
+            if (canvas) canvas.style.cursor = isPickingColor ? 'crosshair' : 'default';
             
             if (isPickingColor) {
                 showStatus('bulk-status', 'Klik pada gambar untuk mengambil warna', 'info');
@@ -1159,6 +1342,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // INITIALIZATION
     // ==========================================
     
-    console.log('Certificate Generator + Excel Cleaner initialized!');
+    console.log('Certificate Generator + Smart Excel Cleaner initialized!');
     
 }); // End DOMContentLoaded
