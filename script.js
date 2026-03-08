@@ -1,6 +1,6 @@
 // ==========================================
-// CERTIFICATE GENERATOR PRO - BUG FIX VERSION
-// Fixed: Excel Cleaner data flow & File naming
+// CERTIFICATE GENERATOR PRO - FINAL FIX
+// Fixed: Data filtering & Empty row handling
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -18,22 +18,16 @@ document.addEventListener('DOMContentLoaded', function() {
     let dragOffset = { x: 0, y: 0 };
     let scale = 1;
     
+    // CRITICAL: Data untuk bulk generation
+    let cleanedDataForBulk = []; // Hanya berisi [nama] yang valid
+    let bulkHeaders = ['Nama']; // Default untuk data cleaned
+    let originalFileName = '';
+    
     // Excel Cleaner variables
     let excelData = null;
     let excelFileName = '';
     let selectedNameColumns = [];
     let detectedNameColumns = [];
-    
-    // CRITICAL: Cleaned data for bulk generation
-    let cleanedDataForBulk = []; // Array of single names
-    let originalFileName = '';
-    
-    // Other features
-    let imageLibrary = JSON.parse(localStorage.getItem('certImageLibrary') || '[]');
-    let qrCodeSettings = { enabled: false, dataPattern: '{{name}}-{{id}}', position: 'bottom-right', size: 100 };
-    let analytics = JSON.parse(localStorage.getItem('certAnalytics') || '{"totalGenerated":0,"history":[]}');
-    let previewData = null;
-    let previewIndex = 0;
 
     // ==========================================
     // UTILITY FUNCTIONS
@@ -76,13 +70,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function cleanName(name) {
         if (!name) return '';
-        return String(name).trim().replace(/\s+/g, ' ');
+        // Hapus whitespace berlebih dan karakter aneh
+        return String(name)
+            .trim()
+            .replace(/\s+/g, ' ')
+            .replace(/[^\w\s\-\'\.]/g, '') // Hanya izinkan alphanumeric, spasi, -, ', .
+            .trim();
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    function isValidName(name) {
+        if (!name) return false;
+        const cleaned = cleanName(name);
+        // Minimal 2 karakter dan bukan hanya angka/simbol
+        return cleaned.length >= 2 && /[a-zA-Z]/.test(cleaned);
+    }
+
+    function sanitizeFileName(name) {
+        if (!name) return 'Unknown';
+        return String(name)
+            .replace(/[<>:"/\\|?*]/g, '_')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 100);
     }
 
     // ==========================================
@@ -199,10 +208,6 @@ document.addEventListener('DOMContentLoaded', function() {
         textElements.forEach((textEl, index) => {
             drawTextElement(textEl, index === selectedTextIndex);
         });
-        
-        if (qrCodeSettings.enabled) {
-            drawQRCodeOnCanvas();
-        }
     }
 
     function drawTextElement(textEl, isSelected) {
@@ -264,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
         ctx.restore();
     }
 
-    // Canvas events
     if (canvas) {
         canvas.addEventListener('mousedown', handleCanvasMouseDown);
         canvas.addEventListener('mousemove', handleCanvasMouseMove);
@@ -361,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
-    // SECTION 3: TOOLBAR CONTROLS
+    // SECTION 3: TOOLBAR CONTROLS (Simplified)
     // ==========================================
     
     const addTextBtn = document.getElementById('add-text-btn');
@@ -445,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (fontItalic) fontItalic.classList.toggle('active', el.italic);
     }
 
-    // Event listeners
+    // Event listeners (simplified)
     if (textInput) {
         textInput.addEventListener('input', function() {
             if (selectedTextIndex !== -1) {
@@ -478,16 +482,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (selectedTextIndex !== -1) {
                 textElements[selectedTextIndex].color = this.value;
                 if (fontColorHex) fontColorHex.value = this.value;
-                redrawCanvas();
-            }
-        });
-    }
-
-    if (fontColorHex) {
-        fontColorHex.addEventListener('change', function() {
-            if (selectedTextIndex !== -1) {
-                textElements[selectedTextIndex].color = this.value;
-                if (fontColor) fontColor.value = this.value;
                 redrawCanvas();
             }
         });
@@ -551,45 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (moveRight) moveRight.addEventListener('click', () => moveSelectedText(5, 0));
 
     // ==========================================
-    // SECTION 4: CUSTOM FONTS
-    // ==========================================
-    
-    const addFontBtn = document.getElementById('add-font-btn');
-    const newFontName = document.getElementById('new-font-name');
-    const newFontFile = document.getElementById('new-font-file');
-
-    if (addFontBtn) {
-        addFontBtn.addEventListener('click', function() {
-            const name = newFontName ? newFontName.value.trim() : '';
-            const file = newFontFile ? newFontFile.files[0] : null;
-            
-            if (!name || !file) {
-                alert('Masukkan nama font dan pilih file font (.ttf, .otf, .woff)');
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const fontFace = new FontFace(name, e.target.result);
-                fontFace.load().then(function(loadedFace) {
-                    document.fonts.add(loadedFace);
-                    
-                    const option = document.createElement('option');
-                    option.value = name;
-                    option.textContent = name;
-                    if (fontFamily) fontFamily.appendChild(option);
-                    
-                    if (newFontName) newFontName.value = '';
-                    if (newFontFile) newFontFile.value = '';
-                    alert('Font berhasil ditambahkan!');
-                });
-            };
-            reader.readAsArrayBuffer(file);
-        });
-    }
-
-    // ==========================================
-    // SECTION 5: TEMPLATE SAVE/LOAD
+    // SECTION 4: TEMPLATE SAVE/LOAD
     // ==========================================
     
     const saveTemplateBtn = document.getElementById('save-template-btn');
@@ -602,15 +558,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 textElements: textElements,
                 canvasWidth: canvas ? canvas.width : 0,
                 canvasHeight: canvas ? canvas.height : 0,
-                qrSettings: qrCodeSettings,
-                version: '2.0 Pro'
+                version: '2.0 Final'
             };
             
             const blob = new Blob([JSON.stringify(template, null, 2)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'certificate-template-pro.json';
+            a.download = 'certificate-template.json';
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -632,21 +587,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     const template = JSON.parse(event.target.result);
                     textElements = template.textElements || [];
-                    
-                    if (template.qrSettings) {
-                        qrCodeSettings = template.qrSettings;
-                    }
-                    
                     selectedTextIndex = -1;
                     updateToolbar();
                     redrawCanvas();
-                    
-                    document.getElementById('qr-enable').checked = qrCodeSettings.enabled;
-                    document.getElementById('qr-pattern').value = qrCodeSettings.dataPattern;
-                    document.getElementById('qr-position').value = qrCodeSettings.position;
-                    document.getElementById('qr-size').value = qrCodeSettings.size;
-                    
-                    alert('Template Pro berhasil dimuat!');
+                    alert('Template berhasil dimuat!');
                 } catch (err) {
                     alert('Error membaca template: ' + err.message);
                 }
@@ -657,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
-    // SECTION 6: DOWNLOAD SINGLE
+    // SECTION 5: DOWNLOAD SINGLE
     // ==========================================
     
     const downloadBtn = document.getElementById('download-btn');
@@ -677,160 +621,65 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
-    // SECTION 7: BULK GENERATION (FIXED VERSION)
+    // SECTION 6: BULK GENERATION (FINAL FIX)
     // ==========================================
     
-    const bulkFileUpload = document.getElementById('bulk-file-upload');
-    const gdocLink = document.getElementById('gdoc-link');
-    const fetchGdocBtn = document.getElementById('fetch-gdoc-btn');
     const generateBulkBtn = document.getElementById('generate-bulk-btn');
     const bulkFormat = document.getElementById('bulk-format');
     const downloadAsZip = document.getElementById('download-as-zip');
-    const bulkStatus = document.getElementById('bulk-status');
 
-    let bulkHeaders = [];
-    // CRITICAL: Use cleanedDataForBulk instead of separate variable
-
-    if (bulkFileUpload) {
-        bulkFileUpload.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            // Store original filename for naming
-            originalFileName = file.name.replace(/\.[^/.]+$/, "");
-            
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                try {
-                    const data = new Uint8Array(event.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
-                    
-                    processBulkData(jsonData);
-                    showStatus('bulk-status', 'Data berhasil dimuat! ' + (jsonData.length - 1) + ' baris ditemukan.', 'success');
-                } catch (err) {
-                    showStatus('bulk-status', 'Error: ' + err.message, 'error');
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        });
-    }
-
-    if (fetchGdocBtn) {
-        fetchGdocBtn.addEventListener('click', async function() {
-            const url = gdocLink ? gdocLink.value.trim() : '';
-            if (!url) {
-                showStatus('bulk-status', 'Masukkan link Google Sheet', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(url);
-                const csvText = await response.text();
-                const workbook = XLSX.read(csvText, {type: 'string'});
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
-                
-                processBulkData(jsonData);
-                showStatus('bulk-status', 'Data berhasil diambil! ' + (jsonData.length - 1) + ' baris ditemukan.', 'success');
-            } catch (err) {
-                showStatus('bulk-status', 'Error mengambil data: ' + err.message, 'error');
-            }
-        });
-    }
-
-    function processBulkData(data) {
-        if (data.length < 2) {
-            showStatus('bulk-status', 'Data terlalu sedikit (minimal 1 header + 1 data)', 'error');
-            return;
-        }
-        
-        bulkHeaders = data[0];
-        
-        // CRITICAL FIX: Store as cleaned single names array
-        // Each element is [name] for single column or we need to flatten
-        cleanedDataForBulk = [];
-        
-        // Check if this is already cleaned data (single column with "Nama" header)
-        const isCleanedData = bulkHeaders.length === 1 && isNameColumn(bulkHeaders[0]);
-        
-        if (isCleanedData) {
-            // Data sudah bersih dari Excel Cleaner
-            for (let i = 1; i < data.length; i++) {
-                if (data[i][0] && String(data[i][0]).trim() !== '') {
-                    cleanedDataForBulk.push([data[i][0]]); // Keep as array for consistency
-                }
-            }
-        } else {
-            // Data mentah, flatten semua nama dari semua kolom
-            for (let i = 1; i < data.length; i++) {
-                const row = data[i];
-                for (let j = 0; j < row.length; j++) {
-                    const name = cleanName(row[j]);
-                    if (name && isNameColumn(bulkHeaders[j])) {
-                        cleanedDataForBulk.push([name]);
-                    }
-                }
-            }
-        }
-        
-        // Update dropdown
-        if (dataLinkSelect) {
-            dataLinkSelect.innerHTML = '<option value="">-- Tidak dihubungkan --</option>';
-            bulkHeaders.forEach((header, index) => {
-                const option = document.createElement('option');
-                option.value = header;
-                option.textContent = header;
-                dataLinkSelect.appendChild(option);
-            });
-        }
-        
-        // Enable generate button
+    // CRITICAL FIX: Tombol generate hanya aktif jika ada data valid
+    function updateGenerateButtonState() {
         if (generateBulkBtn) {
-            generateBulkBtn.disabled = false;
+            const hasData = cleanedDataForBulk && cleanedDataForBulk.length > 0;
+            const hasDesign = !!certificateImage;
+            generateBulkBtn.disabled = !(hasData && hasDesign);
+            
+            console.log('Button state:', {hasData, hasDesign, count: cleanedDataForBulk.length});
         }
-        
-        // Update preview data
-        previewData = cleanedDataForBulk;
-        
-        console.log('Bulk data processed:', cleanedDataForBulk.length, 'names');
-    }
-
-    if (dataLinkSelect) {
-        dataLinkSelect.addEventListener('change', function() {
-            if (selectedTextIndex !== -1) {
-                textElements[selectedTextIndex].dataLink = this.value;
-            }
-        });
     }
 
     if (generateBulkBtn) {
         generateBulkBtn.addEventListener('click', async function() {
-            // CRITICAL FIX: Use cleanedDataForBulk.length instead of bulkData.length
-            if (!certificateImage || cleanedDataForBulk.length === 0) {
-                showStatus('bulk-status', 'Upload desain dan data terlebih dahulu!', 'error');
+            // VALIDASI KETAT
+            if (!certificateImage) {
+                showStatus('bulk-status', '❌ Upload desain sertifikat terlebih dahulu!', 'error');
+                return;
+            }
+            
+            if (!cleanedDataForBulk || cleanedDataForBulk.length === 0) {
+                showStatus('bulk-status', '❌ Tidak ada data nama! Gunakan Excel Cleaner terlebih dahulu.', 'error');
                 return;
             }
             
             const format = bulkFormat ? bulkFormat.value : 'png';
             const asZip = downloadAsZip ? downloadAsZip.checked : true;
             
+            // Log untuk debug
+            console.log('Starting bulk generation:', {
+                totalData: cleanedDataForBulk.length,
+                sampleData: cleanedDataForBulk.slice(0, 3),
+                format: format,
+                asZip: asZip
+            });
+            
             generateBulkBtn.disabled = true;
             generateBulkBtn.textContent = 'Memproses...';
             
             try {
+                let successCount = 0;
+                
                 if (asZip && format === 'png') {
-                    await generateBulkZip();
+                    successCount = await generateBulkZip();
                 } else if (format === 'pdf') {
-                    await generateBulkPDF(asZip);
+                    successCount = await generateBulkPDF(asZip);
                 } else {
-                    await generateBulkPNG();
+                    successCount = await generateBulkPNG();
                 }
                 
-                recordAnalytics(cleanedDataForBulk.length, format);
-                showStatus('bulk-status', `✅ ${cleanedDataForBulk.length} sertifikat berhasil dibuat!`, 'success');
+                showStatus('bulk-status', `✅ ${successCount} sertifikat berhasil dibuat!`, 'success', 8000);
             } catch (err) {
+                console.error('Bulk generation error:', err);
                 showStatus('bulk-status', '❌ Error: ' + err.message, 'error');
             } finally {
                 generateBulkBtn.disabled = false;
@@ -839,142 +688,200 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // FIXED: Generate ZIP dengan penamaan yang benar
+    // FIXED: Generate ZIP dengan validasi ketat
     async function generateBulkZip() {
         const zip = new JSZip();
         const folder = zip.folder("sertifikat");
         
+        let processedCount = 0;
+        let validCount = 0;
+        
         for (let i = 0; i < cleanedDataForBulk.length; i++) {
-            const name = cleanedDataForBulk[i][0] || 'Unknown';
-            generateCertificateWithData(cleanedDataForBulk[i]);
+            const nameData = cleanedDataForBulk[i];
+            
+            // CRITICAL: Validasi nama
+            if (!nameData || !nameData[0]) {
+                console.log(`Skipping row ${i}: empty data`);
+                continue;
+            }
+            
+            const name = cleanName(nameData[0]);
+            if (!isValidName(name)) {
+                console.log(`Skipping row ${i}: invalid name "${name}"`);
+                continue;
+            }
+            
+            // Generate sertifikat
+            generateCertificateWithData([name]);
             
             const dataUrl = canvas.toDataURL('image/png');
             const base64Data = dataUrl.split(',')[1];
             
-            // CRITICAL FIX: Penamaan file S - [Nama].png
             const safeName = sanitizeFileName(name);
             const fileName = `S - ${safeName}.png`;
             
             folder.file(fileName, base64Data, {base64: true});
             
-            if (i % 10 === 0) {
-                showStatus('bulk-status', `Memproses... ${i + 1}/${cleanedDataForBulk.length}`, 'info', 0);
+            validCount++;
+            processedCount++;
+            
+            // Update progress setiap 5 item
+            if (processedCount % 5 === 0) {
+                showStatus('bulk-status', `Memproses... ${processedCount}/${cleanedDataForBulk.length} (Valid: ${validCount})`, 'info', 0);
                 await new Promise(r => setTimeout(r, 10));
             }
+        }
+        
+        if (validCount === 0) {
+            throw new Error('Tidak ada nama valid untuk digenerate!');
         }
         
         const content = await zip.generateAsync({type: "blob"});
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
-        link.download = `${originalFileName || 'sertifikat'}_bulk.zip`;
+        link.download = `${originalFileName || 'sertifikat'}_${validCount}items.zip`;
         link.click();
+        
+        return validCount;
     }
 
-    // FIXED: Generate PNG individual dengan penamaan yang benar
+    // FIXED: Generate PNG individual
     async function generateBulkPNG() {
+        let validCount = 0;
+        
         for (let i = 0; i < cleanedDataForBulk.length; i++) {
-            const name = cleanedDataForBulk[i][0] || 'Unknown';
-            generateCertificateWithData(cleanedDataForBulk[i]);
+            const nameData = cleanedDataForBulk[i];
+            
+            if (!nameData || !nameData[0]) continue;
+            
+            const name = cleanName(nameData[0]);
+            if (!isValidName(name)) continue;
+            
+            generateCertificateWithData([name]);
             
             const link = document.createElement('a');
-            
-            // CRITICAL FIX: Penamaan file S - [Nama].png
             const safeName = sanitizeFileName(name);
             link.download = `S - ${safeName}.png`;
-            
             link.href = canvas.toDataURL('image/png');
             link.click();
             
-            await new Promise(r => setTimeout(r, 100));
+            validCount++;
+            await new Promise(r => setTimeout(r, 150)); // Delay lebih lama untuk browser
         }
+        
+        return validCount;
     }
 
-    // FIXED: Generate PDF dengan penamaan yang benar
+    // FIXED: Generate PDF
     async function generateBulkPDF(asZip) {
         const { jsPDF } = window.jspdf;
         
         if (asZip) {
             const zip = new JSZip();
+            let validCount = 0;
             
             for (let i = 0; i < cleanedDataForBulk.length; i++) {
-                const name = cleanedDataForBulk[i][0] || 'Unknown';
-                generateCertificateWithData(cleanedDataForBulk[i]);
+                const nameData = cleanedDataForBulk[i];
+                
+                if (!nameData || !nameData[0]) continue;
+                
+                const name = cleanName(nameData[0]);
+                if (!isValidName(name)) continue;
+                
+                generateCertificateWithData([name]);
                 
                 const pdf = createPDFfromCanvas();
                 const pdfBlob = pdf.output('blob');
                 
-                // CRITICAL FIX: Penamaan file S - [Nama].pdf
                 const safeName = sanitizeFileName(name);
                 const fileName = `S - ${safeName}.pdf`;
                 
                 zip.file(fileName, pdfBlob);
+                validCount++;
                 
-                if (i % 10 === 0) {
-                    showStatus('bulk-status', `Memproses... ${i + 1}/${cleanedDataForBulk.length}`, 'info', 0);
+                if (validCount % 5 === 0) {
                     await new Promise(r => setTimeout(r, 10));
                 }
             }
             
+            if (validCount === 0) throw new Error('Tidak ada nama valid!');
+            
             const content = await zip.generateAsync({type: "blob"});
             const link = document.createElement('a');
             link.href = URL.createObjectURL(content);
-            link.download = `${originalFileName || 'sertifikat'}_pdf.zip`;
+            link.download = `${originalFileName || 'sertifikat'}_${validCount}items_pdf.zip`;
             link.click();
+            
+            return validCount;
         } else {
-            // Single PDF dengan multiple pages
+            // Single PDF
             const pdf = new jsPDF({
                 orientation: canvas.width > canvas.height ? 'l' : 'p',
                 unit: 'px',
                 format: [canvas.width, canvas.height]
             });
             
+            let validCount = 0;
+            let firstPage = true;
+            
             for (let i = 0; i < cleanedDataForBulk.length; i++) {
-                generateCertificateWithData(cleanedDataForBulk[i]);
+                const nameData = cleanedDataForBulk[i];
+                
+                if (!nameData || !nameData[0]) continue;
+                
+                const name = cleanName(nameData[0]);
+                if (!isValidName(name)) continue;
+                
+                generateCertificateWithData([name]);
                 const imgData = canvas.toDataURL('image/png');
                 
-                if (i > 0) pdf.addPage();
+                if (!firstPage) pdf.addPage();
                 pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                
-                if (i % 10 === 0) {
-                    showStatus('bulk-status', `Memproses... ${i + 1}/${cleanedDataForBulk.length}`, 'info', 0);
-                    await new Promise(r => setTimeout(r, 10));
-                }
+                firstPage = false;
+                validCount++;
             }
             
-            pdf.save(`${originalFileName || 'sertifikat'}_bulk.pdf`);
+            if (validCount === 0) throw new Error('Tidak ada nama valid!');
+            
+            pdf.save(`${originalFileName || 'sertifikat'}_${validCount}items.pdf`);
+            return validCount;
         }
     }
 
-    // HELPER: Sanitize filename untuk menghindari karakter ilegal
-    function sanitizeFileName(name) {
-        if (!name) return 'Unknown';
-        return String(name)
-            .replace(/[<>:"/\\|?*]/g, '_')  // Karakter ilegal di Windows
-            .replace(/\s+/g, ' ')           // Multiple space jadi single
-            .trim()
-            .substring(0, 100);              // Batasi panjang
+    function createPDFfromCanvas() {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? 'l' : 'p',
+            unit: 'px',
+            format: [canvas.width, canvas.height]
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        
+        return pdf;
     }
 
-    function generateCertificateWithData(rowData) {
-        if (!ctx || !certificateImage) return;
+    function generateCertificateWithData(nameArray) {
+        if (!ctx || !certificateImage || !nameArray || !nameArray[0]) return;
         
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(certificateImage, 0, 0);
         
+        const name = nameArray[0];
+        
         textElements.forEach(textEl => {
             let displayText = textEl.text;
             
-            // CRITICAL FIX: Gunakan rowData[0] karena data sudah flattened
+            // Jika ada data link, coba gunakan (tapi untuk data cleaned, selalu pakai name)
             if (textEl.dataLink && bulkHeaders.includes(textEl.dataLink)) {
                 const colIndex = bulkHeaders.indexOf(textEl.dataLink);
-                if (colIndex !== -1 && rowData[colIndex]) {
-                    displayText = String(rowData[colIndex]);
+                if (colIndex !== -1 && nameArray[colIndex]) {
+                    displayText = String(nameArray[colIndex]);
                 }
             } else {
-                // Jika tidak ada data link, gunakan rowData[0] (nama utama)
-                if (rowData[0]) {
-                    displayText = String(rowData[0]);
-                }
+                // Default: gunakan nama utama
+                displayText = String(name);
             }
             
             if (textEl.transform === 'uppercase') {
@@ -1006,28 +913,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             ctx.restore();
         });
-        
-        if (qrCodeSettings.enabled) {
-            drawQRCodeOnCanvas();
-        }
-    }
-
-    function createPDFfromCanvas() {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-            orientation: canvas.width > canvas.height ? 'l' : 'p',
-            unit: 'px',
-            format: [canvas.width, canvas.height]
-        });
-        
-        const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-        
-        return pdf;
     }
 
     // ==========================================
-    // SECTION 8: SMART EXCEL CLEANER (FIXED)
+    // SECTION 7: SMART EXCEL CLEANER (FINAL FIX)
     // ==========================================
     
     const cleanerDropZone = document.getElementById('cleaner-drop-zone');
@@ -1045,15 +934,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearSelectionBtn = document.getElementById('clear-selection-btn');
     const selectedColumnsInfo = document.getElementById('selected-columns-info');
 
-    // NEW: Button untuk langsung gunakan data bersih untuk bulk
+    // CRITICAL: Tombol untuk transfer data ke bulk generation
     const useForBulkBtn = document.createElement('button');
     useForBulkBtn.id = 'use-for-bulk-btn';
     useForBulkBtn.className = 'btn-primary btn-large';
-    useForBulkBtn.innerHTML = '<span class="btn-icon">🚀</span> Gunakan untuk Generate Massal';
+    useForBulkBtn.innerHTML = '🚀 Gunakan untuk Generate Massal';
     useForBulkBtn.style.marginTop = '15px';
     useForBulkBtn.style.display = 'none';
+    useForBulkBtn.style.background = '#ff6b6b';
     
-    // Tambahkan setelah download button
     if (downloadCleanBtn && downloadCleanBtn.parentNode) {
         downloadCleanBtn.parentNode.appendChild(useForBulkBtn);
     }
@@ -1091,12 +980,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const ext = '.' + file.name.split('.').pop().toLowerCase();
         
         if (!validFormats.includes(ext)) {
-            showStatus('cleaner-status', '❌ Format file tidak didukung. Gunakan .csv, .xls, atau .xlsx', 'error');
+            showStatus('cleaner-status', '❌ Format file tidak didukung', 'error');
             return;
         }
 
         excelFileName = file.name.replace(ext, '');
-        originalFileName = excelFileName; // Simpan untuk penamaan file
+        originalFileName = excelFileName;
         
         if (outputFilename) outputFilename.value = excelFileName + '_clean';
         
@@ -1110,19 +999,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
                 
                 if (jsonData.length === 0) {
-                    showStatus('cleaner-status', '❌ File kosong atau tidak valid', 'error');
+                    showStatus('cleaner-status', '❌ File kosong', 'error');
                     return;
                 }
 
-                excelData = jsonData;
-                processCleanerData(jsonData);
+                // CRITICAL: Filter baris kosong dari awal
+                excelData = jsonData.filter(row => row.some(cell => cell && String(cell).trim() !== ''));
+                
+                if (excelData.length < 2) {
+                    showStatus('cleaner-status', '❌ Tidak ada data valid (minimal perlu header + 1 data)', 'error');
+                    return;
+                }
+
+                console.log('Excel loaded:', {
+                    totalRows: excelData.length,
+                    headers: excelData[0],
+                    sampleRow: excelData[1]
+                });
+
+                processCleanerData(excelData);
                 
                 if (cleanerDropZone) cleanerDropZone.classList.add('has-file');
                 if (cleanerWorkspace) cleanerWorkspace.classList.remove('hidden');
-                showStatus('cleaner-status', '✅ File berhasil dimuat! Kolom nama otomatis terdeteksi.', 'success');
+                showStatus('cleaner-status', `✅ File loaded! ${excelData.length - 1} baris data.`, 'success');
                 
             } catch (err) {
-                showStatus('cleaner-status', '❌ Error membaca file: ' + err.message, 'error');
+                showStatus('cleaner-status', '❌ Error: ' + err.message, 'error');
+                console.error(err);
             }
         };
         
@@ -1131,11 +1034,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function processCleanerData(data) {
         const headers = data[0];
-        const totalCols = headers.length;
         
         selectedNameColumns = [];
         detectedNameColumns = [];
         
+        // Auto-detect kolom nama
         headers.forEach((header, index) => {
             if (isNameColumn(header)) {
                 detectedNameColumns.push({
@@ -1147,7 +1050,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         populateColumnSelect(headers);
-        updateCleanerStats(totalCols);
+        updateCleanerStats(headers.length);
         updateColumnSelection();
         
         if (selectedNameColumns.length > 0) {
@@ -1162,17 +1065,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         nameColumnSelect.innerHTML = '';
         
+        // Select All
         const selectAllDiv = document.createElement('div');
         selectAllDiv.className = 'column-option select-all';
         selectAllDiv.innerHTML = `
             <label class="checkbox-label">
-                <input type="checkbox" id="select-all-columns" ${selectedNameColumns.length === headers.length ? 'checked' : ''}>
+                <input type="checkbox" id="select-all-columns">
                 <span class="checkmark"></span>
                 <strong>Pilih Semua Kolom</strong>
             </label>
         `;
         nameColumnSelect.appendChild(selectAllDiv);
         
+        // Individual columns
         headers.forEach((header, index) => {
             const isDetected = detectedNameColumns.some(d => d.index === index);
             const isSelected = selectedNameColumns.includes(index);
@@ -1181,31 +1086,24 @@ document.addEventListener('DOMContentLoaded', function() {
             div.className = 'column-option' + (isDetected ? ' detected' : '');
             div.innerHTML = `
                 <label class="checkbox-label">
-                    <input type="checkbox" value="${index}" ${isSelected ? 'checked' : ''} data-detected="${isDetected}">
+                    <input type="checkbox" value="${index}" ${isSelected ? 'checked' : ''}>
                     <span class="checkmark"></span>
                     <span class="column-name">${header || `Kolom ${index + 1}`}</span>
-                    ${isDetected ? '<span class="detected-badge">🎯 Terdeteksi</span>' : ''}
+                    ${isDetected ? '<span class="detected-badge">🎯 Nama</span>' : ''}
                 </label>
             `;
             nameColumnSelect.appendChild(div);
         });
         
-        const selectAllCheckbox = document.getElementById('select-all-columns');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', function() {
-                const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
-                checkboxes.forEach(cb => {
-                    cb.checked = this.checked;
-                });
-                updateSelectedColumnsFromCheckboxes();
-            });
-        }
+        // Event listeners
+        document.getElementById('select-all-columns')?.addEventListener('change', function() {
+            const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateSelectedColumnsFromCheckboxes();
+        });
         
-        const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
-        checkboxes.forEach(cb => {
-            cb.addEventListener('change', function() {
-                updateSelectedColumnsFromCheckboxes();
-            });
+        nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)').forEach(cb => {
+            cb.addEventListener('change', updateSelectedColumnsFromCheckboxes);
         });
     }
 
@@ -1213,9 +1111,7 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedNameColumns = [];
         const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
         checkboxes.forEach(cb => {
-            if (cb.checked) {
-                selectedNameColumns.push(parseInt(cb.value));
-            }
+            if (cb.checked) selectedNameColumns.push(parseInt(cb.value));
         });
         
         updateCleanerPreview();
@@ -1225,64 +1121,87 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateUseForBulkButton() {
-        // Tampilkan tombol "Gunakan untuk Bulk" jika ada data valid
-        const hasValidData = selectedNameColumns.length > 0 && excelData && excelData.length > 1;
+        const hasData = selectedNameColumns.length > 0 && excelData && excelData.length > 1;
         if (useForBulkBtn) {
-            useForBulkBtn.style.display = hasValidData ? 'block' : 'none';
+            useForBulkBtn.style.display = hasData ? 'block' : 'none';
         }
     }
 
-    // CRITICAL FIX: Event listener untuk tombol "Gunakan untuk Bulk"
+    // CRITICAL FIX: Transfer data ke bulk generation
     if (useForBulkBtn) {
         useForBulkBtn.addEventListener('click', function() {
-            if (!excelData || selectedNameColumns.length === 0) return;
+            if (!excelData || selectedNameColumns.length === 0) {
+                showStatus('cleaner-status', '❌ Pilih kolom nama terlebih dahulu!', 'error');
+                return;
+            }
             
-            // Generate cleaned data
-            const tempCleanedData = [];
+            // CRITICAL: Build cleaned data dengan FILTERING KETAT
+            const tempData = [];
+            let skippedCount = 0;
+            let emptyCount = 0;
             
             for (let i = 1; i < excelData.length; i++) {
                 const row = excelData[i];
-                const names = [];
+                const namesFromRow = [];
                 
+                // Ambil nama dari semua kolom yang dipilih
                 selectedNameColumns.forEach(colIndex => {
-                    const name = cleanName(row[colIndex]);
-                    if (name) names.push(name);
+                    const rawValue = row[colIndex];
+                    const name = cleanName(rawValue);
+                    
+                    if (name && isValidName(name)) {
+                        namesFromRow.push(name);
+                    } else if (rawValue) {
+                        skippedCount++;
+                    } else {
+                        emptyCount++;
+                    }
                 });
                 
-                // Flatten: setiap nama jadi 1 baris
-                names.forEach(name => {
-                    tempCleanedData.push([name]);
+                // Tambahkan setiap nama valid sebagai entry terpisah
+                namesFromRow.forEach(name => {
+                    tempData.push([name]);
                 });
             }
             
-            // CRITICAL: Set ke variabel global yang digunakan bulk generation
-            cleanedDataForBulk = tempCleanedData;
-            bulkHeaders = ['Nama']; // Set header untuk data link
+            // VALIDASI FINAL
+            if (tempData.length === 0) {
+                showStatus('cleaner-status', '❌ Tidak ada nama valid ditemukan! Periksa data Anda.', 'error');
+                return;
+            }
+            
+            // Set ke variabel global
+            cleanedDataForBulk = tempData;
+            bulkHeaders = ['Nama'];
+            
+            console.log('Data prepared for bulk:', {
+                totalValid: cleanedDataForBulk.length,
+                sample: cleanedDataForBulk.slice(0, 5),
+                skippedInvalid: skippedCount,
+                skippedEmpty: emptyCount
+            });
             
             // Update UI
-            if (generateBulkBtn) generateBulkBtn.disabled = false;
+            updateGenerateButtonState();
             
             // Scroll ke bulk section
             const bulkSection = document.getElementById('bulk-section');
             if (bulkSection) {
                 bulkSection.scrollIntoView({behavior: 'smooth'});
+                // Highlight the section
+                bulkSection.style.animation = 'highlight 2s';
+                setTimeout(() => bulkSection.style.animation = '', 2000);
             }
             
-            showStatus('bulk-status', `✅ ${cleanedDataForBulk.length} nama siap untuk generate massal! Klik "Mulai Generasi Massal".`, 'success', 8000);
-            
-            console.log('Data siap untuk bulk:', cleanedDataForBulk.length, 'names');
-        });
-    }
-
-    function updateColumnSelection() {
-        const checkboxes = nameColumnSelect.querySelectorAll('input[type="checkbox"]:not(#select-all-columns)');
-        checkboxes.forEach(cb => {
-            cb.checked = selectedNameColumns.includes(parseInt(cb.value));
+            showStatus('bulk-status', 
+                `✅ ${cleanedDataForBulk.length} nama valid siap! ` +
+                `(Skip: ${skippedCount} invalid, ${emptyCount} kosong)`, 
+                'success', 10000);
         });
     }
 
     function updateCleanerStats(totalCols) {
-        if (totalRowsEl) totalRowsEl.textContent = excelData.length - 1;
+        if (totalRowsEl) totalRowsEl.textContent = excelData ? (excelData.length - 1) : 0;
         if (removedColsEl) removedColsEl.textContent = totalCols - selectedNameColumns.length;
         if (keptColsEl) keptColsEl.textContent = selectedNameColumns.length;
     }
@@ -1291,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!selectedColumnsInfo) return;
         
         if (selectedNameColumns.length === 0) {
-            selectedColumnsInfo.innerHTML = '<span class="warning">⚠️ Pilih minimal 1 kolom</span>';
+            selectedColumnsInfo.innerHTML = '<span class="warning">⚠️ Pilih minimal 1 kolom nama</span>';
             return;
         }
         
@@ -1299,52 +1218,51 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedNames = selectedNameColumns.map(idx => headers[idx] || `Kolom ${idx + 1}`);
         
         selectedColumnsInfo.innerHTML = `
-            <strong>${selectedNameColumns.length} kolom dipilih:</strong><br>
-            <small>${selectedNames.join(', ')}</small>
+            <strong>${selectedNameColumns.length} kolom dipilih:</strong> ${selectedNames.join(', ')}
         `;
     }
 
     function updateCleanerPreview() {
         if (!cleanerPreviewBody || !excelData || selectedNameColumns.length === 0) {
-            if (cleanerPreviewBody) cleanerPreviewBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Pilih kolom untuk melihat preview</td></tr>';
+            if (cleanerPreviewBody) cleanerPreviewBody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Pilih kolom untuk preview</td></tr>';
             return;
         }
         
         cleanerPreviewBody.innerHTML = '';
         const rowsToShow = Math.min(excelData.length - 1, 10);
+        let displayIndex = 1;
         
         for (let i = 1; i <= rowsToShow; i++) {
             const row = excelData[i];
-            const names = [];
+            const validNames = [];
+            
             selectedNameColumns.forEach(colIndex => {
                 const name = cleanName(row[colIndex]);
-                if (name) names.push(name);
+                if (isValidName(name)) validNames.push(name);
             });
             
-            if (names.length === 0) {
+            if (validNames.length === 0) {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${i}</td>
-                    <td class="empty-cell">- (kosong)</td>
-                `;
+                tr.style.opacity = '0.5';
+                tr.innerHTML = `<td>${i}</td><td style="color: #999;">- (kosong/invalid)</td>`;
                 cleanerPreviewBody.appendChild(tr);
             } else {
-                names.forEach((name, nameIdx) => {
+                validNames.forEach((name, idx) => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td>${i}${names.length > 1 ? `.${nameIdx + 1}` : ''}</td>
-                        <td>${escapeHtml(name)}</td>
+                        <td>${displayIndex++}</td>
+                        <td><strong>${name}</strong></td>
                     `;
                     cleanerPreviewBody.appendChild(tr);
                 });
             }
         }
-
+        
         if (excelData.length > 11) {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td colspan="2" style="text-align: center; color: #6c757d; font-style: italic;">
-                    ... dan ${excelData.length - 11} baris lainnya
+                <td colspan="2" style="text-align: center; color: #6c757d;">
+                    ... ${excelData.length - 11} baris lainnya
                 </td>
             `;
             cleanerPreviewBody.appendChild(tr);
@@ -1359,9 +1277,7 @@ document.addEventListener('DOMContentLoaded', function() {
             selectedNameColumns = [];
             
             headers.forEach((header, index) => {
-                if (isNameColumn(header)) {
-                    selectedNameColumns.push(index);
-                }
+                if (isNameColumn(header)) selectedNameColumns.push(index);
             });
             
             updateColumnSelection();
@@ -1370,7 +1286,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCleanerStats(headers.length);
             updateUseForBulkButton();
             
-            showStatus('cleaner-status', `✅ ${selectedNameColumns.length} kolom nama terdeteksi otomatis`, 'success');
+            showStatus('cleaner-status', `✅ ${selectedNameColumns.length} kolom terdeteksi`, 'success');
         });
     }
 
@@ -1381,43 +1297,38 @@ document.addEventListener('DOMContentLoaded', function() {
             checkboxes.forEach(cb => cb.checked = false);
             updateCleanerPreview();
             updateSelectedColumnsInfo();
-            updateCleanerStats(excelData[0].length);
             updateUseForBulkButton();
         });
     }
 
-    // Download handler untuk Excel Cleaner (hanya download, tidak untuk bulk)
     if (downloadCleanBtn) {
         downloadCleanBtn.addEventListener('click', function() {
             if (!excelData || selectedNameColumns.length === 0) {
-                showStatus('cleaner-status', '❌ Pilih minimal 1 kolom nama', 'error');
+                showStatus('cleaner-status', '❌ Pilih kolom terlebih dahulu', 'error');
                 return;
             }
 
             const format = outputFormat ? outputFormat.value : 'xlsx';
             const filename = outputFilename ? (outputFilename.value || 'nama_bersih') : 'nama_bersih';
             
-            const cleanData = [];
-            cleanData.push(['Nama']);
-            
-            let totalNames = 0;
+            const cleanData = [['Nama']];
+            let validCount = 0;
             
             for (let i = 1; i < excelData.length; i++) {
                 const row = excelData[i];
-                const names = [];
+                
                 selectedNameColumns.forEach(colIndex => {
                     const name = cleanName(row[colIndex]);
-                    if (name) names.push(name);
-                });
-                
-                if (names.length === 0) {
-                    cleanData.push(['']);
-                } else {
-                    names.forEach(name => {
+                    if (isValidName(name)) {
                         cleanData.push([name]);
-                        totalNames++;
-                    });
-                }
+                        validCount++;
+                    }
+                });
+            }
+            
+            if (validCount === 0) {
+                showStatus('cleaner-status', '❌ Tidak ada nama valid untuk diexport!', 'error');
+                return;
             }
 
             const wb = XLSX.utils.book_new();
@@ -1426,109 +1337,19 @@ document.addEventListener('DOMContentLoaded', function() {
             XLSX.utils.book_append_sheet(wb, ws, "Nama Bersih");
 
             const ext = format === 'csv' ? '.csv' : '.xlsx';
-            try {
-                XLSX.writeFile(wb, filename + ext);
-                showStatus('cleaner-status', `✅ ${totalNames} nama berhasil diekspor ke ${filename}${ext}`, 'success');
-            } catch (err) {
-                showStatus('cleaner-status', '❌ Error download: ' + err.message, 'error');
-            }
+            XLSX.writeFile(wb, filename + ext);
+            showStatus('cleaner-status', `✅ ${validCount} nama diexport!`, 'success');
         });
-    }
-
-    // ==========================================
-    // SECTION 9: QR CODE & OTHER FEATURES
-    // ==========================================
-    
-    function drawQRCodeOnCanvas() {
-        let qrData = 'CERTIFICATE-VERIFICATION';
-        if (previewData && previewData[previewIndex]) {
-            const row = previewData[previewIndex];
-            qrData = qrCodeSettings.dataPattern
-                .replace('{{name}}', row[0] || 'Unknown')
-                .replace('{{id}}', previewIndex + 1)
-                .replace('{{date}}', new Date().toISOString().split('T')[0]);
-        }
-        
-        const qrCanvas = generateQRCode(qrData, qrCodeSettings.size);
-        const pos = getQRPosition(qrCodeSettings.position, canvas.width, canvas.height, qrCodeSettings.size);
-        
-        ctx.drawImage(qrCanvas, pos.x, pos.y);
-    }
-
-    function generateQRCode(data, size) {
-        const qrCanvas = document.createElement('canvas');
-        qrCanvas.width = size;
-        qrCanvas.height = size;
-        const qrCtx = qrCanvas.getContext('2d');
-        
-        const seed = data.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
-        
-        qrCtx.fillStyle = 'white';
-        qrCtx.fillRect(0, 0, size, size);
-        qrCtx.fillStyle = 'black';
-        
-        const cellSize = Math.floor(size / 25);
-        
-        drawPositionPattern(qrCtx, 0, 0, cellSize * 7);
-        drawPositionPattern(qrCtx, size - cellSize * 7, 0, cellSize * 7);
-        drawPositionPattern(qrCtx, 0, size - cellSize * 7, cellSize * 7);
-        
-        for (let i = 0; i < 25; i++) {
-            for (let j = 0; j < 25; j++) {
-                if ((i < 7 && j < 7) || (i > 17 && j < 7) || (i < 7 && j > 17)) continue;
-                
-                const pseudoRandom = Math.sin(seed + i * 25 + j) > 0;
-                if (pseudoRandom) {
-                    qrCtx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
-                }
-            }
-        }
-        
-        return qrCanvas;
-    }
-
-    function drawPositionPattern(ctx, x, y, size) {
-        ctx.fillStyle = 'black';
-        ctx.fillRect(x, y, size, size);
-        ctx.fillStyle = 'white';
-        ctx.fillRect(x + size/7, y + size/7, size - size/3.5, size - size/3.5);
-        ctx.fillStyle = 'black';
-        ctx.fillRect(x + size/3.5, y + size/3.5, size/3.5, size/3.5);
-    }
-
-    function getQRPosition(position, canvasWidth, canvasHeight, qrSize) {
-        const padding = 20;
-        switch(position) {
-            case 'top-left': return { x: padding, y: padding };
-            case 'top-right': return { x: canvasWidth - qrSize - padding, y: padding };
-            case 'bottom-left': return { x: padding, y: canvasHeight - qrSize - padding };
-            case 'bottom-right': return { x: canvasWidth - qrSize - padding, y: canvasHeight - qrSize - padding };
-            case 'center': return { x: (canvasWidth - qrSize) / 2, y: (canvasHeight - qrSize) / 2 };
-            default: return { x: canvasWidth - qrSize - padding, y: canvasHeight - qrSize - padding };
-        }
-    }
-
-    // Analytics
-    function recordAnalytics(count, format) {
-        analytics.totalGenerated += count;
-        analytics.history.push({
-            date: new Date().toISOString(),
-            count: count,
-            format: format
-        });
-        
-        if (analytics.history.length > 100) {
-            analytics.history = analytics.history.slice(-100);
-        }
-        
-        localStorage.setItem('certAnalytics', JSON.stringify(analytics));
     }
 
     // ==========================================
     // INITIALIZATION
     // ==========================================
     
-    console.log('✅ Certificate Generator Pro v2.0 - BUG FIX EDITION');
-    console.log('Fixed: Excel Cleaner data flow & File naming (S - [Nama].png)');
+    console.log('✅ Certificate Generator FINAL FIX loaded');
+    console.log('Features: Strict filtering, Valid name detection, Proper data flow');
+    
+    // Disable generate button on start
+    updateGenerateButtonState();
     
 }); // End DOMContentLoaded
