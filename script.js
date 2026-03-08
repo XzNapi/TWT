@@ -1,6 +1,7 @@
 // ==========================================
-// CERTIFICATE GENERATOR + EXCEL CLEANER (SMART VERSION)
-// Full JavaScript Implementation
+// CERTIFICATE GENERATOR PRO + SMART EXCEL CLEANER
+// Full JavaScript Implementation with 5 New Features
+// Version: 2.0 Pro
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -19,17 +20,41 @@ document.addEventListener('DOMContentLoaded', function() {
     let dragOffset = { x: 0, y: 0 };
     let scale = 1;
     
-    // Excel Cleaner variables - SMART VERSION
+    // Excel Cleaner variables
     let excelData = null;
     let excelFileName = '';
-    let selectedNameColumns = []; // Array untuk multiple kolom
-    let detectedNameColumns = []; // Kolom yang terdeteksi otomatis
+    let selectedNameColumns = [];
+    let detectedNameColumns = [];
+    
+    // NEW: Feature 1 - Image Library
+    let imageLibrary = JSON.parse(localStorage.getItem('certImageLibrary') || '[]');
+    
+    // NEW: Feature 2 - QR Code settings
+    let qrCodeSettings = {
+        enabled: false,
+        dataPattern: '{{name}}-{{id}}',
+        position: 'bottom-right',
+        size: 100
+    };
+    
+    // NEW: Feature 3 - Analytics
+    let analytics = JSON.parse(localStorage.getItem('certAnalytics') || '{"totalGenerated":0,"history":[]}');
+    
+    // NEW: Feature 4 - Batch Style
+    let batchStyle = {
+        target: 'all', // 'all', 'selected', 'unlinked', 'linked'
+        properties: []
+    };
+    
+    // NEW: Feature 5 - Preview Data
+    let previewData = null;
+    let previewIndex = 0;
 
     // ==========================================
     // UTILITY FUNCTIONS
     // ==========================================
     
-    function showStatus(elementId, message, type = 'info') {
+    function showStatus(elementId, message, type = 'info', duration = 5000) {
         const statusDiv = document.getElementById(elementId);
         if (!statusDiv) return;
         
@@ -37,21 +62,20 @@ document.addEventListener('DOMContentLoaded', function() {
         statusDiv.className = 'status-message ' + type;
         statusDiv.classList.remove('hidden');
         
-        setTimeout(() => {
-            statusDiv.classList.add('hidden');
-        }, 5000);
+        if (duration > 0) {
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, duration);
+        }
     }
 
     function generateId() {
         return 'text_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 
-    // Fungsi untuk mendeteksi apakah header adalah kolom nama
     function isNameColumn(header) {
         if (!header) return false;
         const headerStr = String(header).toLowerCase().trim();
-        
-        // Keywords yang menunjukkan kolom nama
         const nameKeywords = [
             'nama', 'name', 'peserta', 'participant', 'siswa', 'student',
             'mahasiswa', 'karyawan', 'employee', 'pegawai', 'staff',
@@ -62,14 +86,18 @@ document.addEventListener('DOMContentLoaded', function() {
             'name1', 'name2', 'name3', 'name_1', 'name_2', 'name_3',
             'peserta1', 'peserta2', 'peserta3', 'participant1', 'participant2'
         ];
-        
         return nameKeywords.some(keyword => headerStr.includes(keyword));
     }
 
-    // Fungsi untuk membersihkan nama
     function cleanName(name) {
         if (!name) return '';
         return String(name).trim().replace(/\s+/g, ' ');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // ==========================================
@@ -100,6 +128,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     certificateImage = img;
                     initCanvas();
                     showEditor();
+                    
+                    // NEW: Auto-save to library option
+                    showSaveToLibraryOption(file.name, event.target.result);
                 };
                 img.src = event.target.result;
             };
@@ -130,6 +161,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         certificateImage = img;
                         initCanvas();
                         showEditor();
+                        
+                        // Convert PDF to image for library
+                        showSaveToLibraryOption(file.name.replace('.pdf', '.png'), tempCanvas.toDataURL());
                     };
                     img.src = tempCanvas.toDataURL();
                 });
@@ -153,6 +187,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editorSection) editorSection.style.display = 'block';
         if (bulkSection) bulkSection.style.display = 'block';
         addDefaultText();
+        
+        // NEW: Initialize new features
+        initImageLibrary();
+        initQRCodeFeature();
+        initAnalytics();
+        initBatchStyleEditor();
+        initPreviewMode();
     }
 
     function addDefaultText() {
@@ -174,7 +215,603 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
-    // SECTION 2: CANVAS & TEXT EDITING
+    // NEW FEATURE 1: IMAGE LIBRARY 📚
+    // ==========================================
+    
+    function showSaveToLibraryOption(filename, dataUrl) {
+        // Create temporary notification
+        const notif = document.createElement('div');
+        notif.className = 'library-notification';
+        notif.innerHTML = `
+            <div class="notif-content">
+                <span>💾 Simpan ke Library?</span>
+                <button id="save-lib-yes" class="btn-primary btn-small">Ya</button>
+                <button id="save-lib-no" class="btn-secondary btn-small">Tidak</button>
+            </div>
+        `;
+        document.body.appendChild(notif);
+        
+        document.getElementById('save-lib-yes').addEventListener('click', () => {
+            saveToLibrary(filename, dataUrl);
+            notif.remove();
+        });
+        
+        document.getElementById('save-lib-no').addEventListener('click', () => {
+            notif.remove();
+        });
+        
+        setTimeout(() => notif.remove(), 10000);
+    }
+
+    function saveToLibrary(name, dataUrl) {
+        const id = 'img_' + Date.now();
+        const thumb = createThumbnail(dataUrl, 200);
+        
+        imageLibrary.push({
+            id: id,
+            name: name,
+            thumbnail: thumb,
+            fullImage: dataUrl,
+            dateAdded: new Date().toISOString(),
+            useCount: 0
+        });
+        
+        localStorage.setItem('certImageLibrary', JSON.stringify(imageLibrary));
+        showStatus('bulk-status', '✅ Desain tersimpan di Library!', 'success');
+        updateLibraryUI();
+    }
+
+    function createThumbnail(dataUrl, maxSize) {
+        // Return same image for now (in production, resize it)
+        return dataUrl;
+    }
+
+    function initImageLibrary() {
+        const libContainer = document.getElementById('image-library-container');
+        if (!libContainer) return;
+        
+        updateLibraryUI();
+        
+        // Setup event listeners for library buttons
+        document.getElementById('open-library-btn')?.addEventListener('click', openLibraryModal);
+        document.getElementById('clear-library-btn')?.addEventListener('click', clearLibrary);
+    }
+
+    function updateLibraryUI() {
+        const grid = document.getElementById('library-grid');
+        if (!grid) return;
+        
+        grid.innerHTML = '';
+        
+        if (imageLibrary.length === 0) {
+            grid.innerHTML = '<div class="empty-library">Library kosong. Upload desain untuk menyimpan.</div>';
+            return;
+        }
+        
+        // Sort by most used and recent
+        const sorted = [...imageLibrary].sort((a, b) => b.useCount - a.useCount || new Date(b.dateAdded) - new Date(a.dateAdded));
+        
+        sorted.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'library-item';
+            div.innerHTML = `
+                <img src="${item.thumbnail}" alt="${item.name}" loading="lazy">
+                <div class="item-overlay">
+                    <span class="use-count">Used: ${item.useCount}x</span>
+                    <button class="use-item-btn" data-id="${item.id}">Gunakan</button>
+                    <button class="delete-item-btn" data-id="${item.id}">🗑️</button>
+                </div>
+                <div class="item-name">${item.name}</div>
+            `;
+            grid.appendChild(div);
+        });
+        
+        // Add event listeners
+        grid.querySelectorAll('.use-item-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                useLibraryImage(btn.dataset.id);
+            });
+        });
+        
+        grid.querySelectorAll('.delete-item-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteLibraryImage(btn.dataset.id);
+            });
+        });
+    }
+
+    function useLibraryImage(id) {
+        const item = imageLibrary.find(img => img.id === id);
+        if (!item) return;
+        
+        const img = new Image();
+        img.onload = function() {
+            certificateImage = img;
+            initCanvas();
+            redrawCanvas();
+            
+            // Update use count
+            item.useCount++;
+            localStorage.setItem('certImageLibrary', JSON.stringify(imageLibrary));
+            updateLibraryUI();
+            
+            showStatus('bulk-status', `✅ Desain "${item.name}" dimuat!`, 'success');
+            closeLibraryModal();
+        };
+        img.src = item.fullImage;
+    }
+
+    function deleteLibraryImage(id) {
+        if (!confirm('Hapus desain dari library?')) return;
+        
+        imageLibrary = imageLibrary.filter(img => img.id !== id);
+        localStorage.setItem('certImageLibrary', JSON.stringify(imageLibrary));
+        updateLibraryUI();
+        showStatus('bulk-status', 'Desain dihapus dari library', 'info');
+    }
+
+    function openLibraryModal() {
+        const modal = document.getElementById('library-modal');
+        if (modal) modal.classList.remove('hidden');
+        updateLibraryUI();
+    }
+
+    function closeLibraryModal() {
+        const modal = document.getElementById('library-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function clearLibrary() {
+        if (!confirm('Hapus SEMUA desain di library? Ini tidak bisa dibatalkan.')) return;
+        imageLibrary = [];
+        localStorage.removeItem('certImageLibrary');
+        updateLibraryUI();
+        showStatus('bulk-status', 'Library dikosongkan', 'info');
+    }
+
+    // ==========================================
+    // NEW FEATURE 2: QR CODE GENERATOR 📱
+    // ==========================================
+    
+    function initQRCodeFeature() {
+        const qrToggle = document.getElementById('qr-enable');
+        const qrPattern = document.getElementById('qr-pattern');
+        const qrPosition = document.getElementById('qr-position');
+        const qrSize = document.getElementById('qr-size');
+        const previewBtn = document.getElementById('qr-preview-btn');
+        
+        if (qrToggle) {
+            qrToggle.addEventListener('change', function() {
+                qrCodeSettings.enabled = this.checked;
+                updateQRPreview();
+            });
+        }
+        
+        if (qrPattern) {
+            qrPattern.addEventListener('input', function() {
+                qrCodeSettings.dataPattern = this.value;
+            });
+        }
+        
+        if (qrPosition) {
+            qrPosition.addEventListener('change', function() {
+                qrCodeSettings.position = this.value;
+                updateQRPreview();
+            });
+        }
+        
+        if (qrSize) {
+            qrSize.addEventListener('input', function() {
+                qrCodeSettings.size = parseInt(this.value);
+                updateQRPreview();
+            });
+        }
+        
+        if (previewBtn) {
+            previewBtn.addEventListener('click', generateQRPreview);
+        }
+    }
+
+    function updateQRPreview() {
+        if (!qrCodeSettings.enabled || !certificateImage) return;
+        redrawCanvas(); // Will include QR if enabled
+    }
+
+    function generateQRCode(data, size) {
+        // Simple QR-like pattern (in production, use qrcode.js library)
+        const qrCanvas = document.createElement('canvas');
+        qrCanvas.width = size;
+        qrCanvas.height = size;
+        const qrCtx = qrCanvas.getContext('2d');
+        
+        // Generate pseudo-random pattern based on data
+        const seed = data.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
+        
+        qrCtx.fillStyle = 'white';
+        qrCtx.fillRect(0, 0, size, size);
+        qrCtx.fillStyle = 'black';
+        
+        const cellSize = Math.floor(size / 25);
+        
+        // Position detection patterns (corners)
+        drawPositionPattern(qrCtx, 0, 0, cellSize * 7);
+        drawPositionPattern(qrCtx, size - cellSize * 7, 0, cellSize * 7);
+        drawPositionPattern(qrCtx, 0, size - cellSize * 7, cellSize * 7);
+        
+        // Data pattern
+        for (let i = 0; i < 25; i++) {
+            for (let j = 0; j < 25; j++) {
+                // Skip position detection areas
+                if ((i < 7 && j < 7) || (i > 17 && j < 7) || (i < 7 && j > 17)) continue;
+                
+                const pseudoRandom = Math.sin(seed + i * 25 + j) > 0;
+                if (pseudoRandom) {
+                    qrCtx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+        
+        return qrCanvas;
+    }
+
+    function drawPositionPattern(ctx, x, y, size) {
+        ctx.fillStyle = 'black';
+        ctx.fillRect(x, y, size, size);
+        ctx.fillStyle = 'white';
+        ctx.fillRect(x + size/7, y + size/7, size - size/3.5, size - size/3.5);
+        ctx.fillStyle = 'black';
+        ctx.fillRect(x + size/3.5, y + size/3.5, size/3.5, size/3.5);
+    }
+
+    function getQRPosition(position, canvasWidth, canvasHeight, qrSize) {
+        const padding = 20;
+        switch(position) {
+            case 'top-left': return { x: padding, y: padding };
+            case 'top-right': return { x: canvasWidth - qrSize - padding, y: padding };
+            case 'bottom-left': return { x: padding, y: canvasHeight - qrSize - padding };
+            case 'bottom-right': return { x: canvasWidth - qrSize - padding, y: canvasHeight - qrSize - padding };
+            case 'center': return { x: (canvasWidth - qrSize) / 2, y: (canvasHeight - qrSize) / 2 };
+            default: return { x: canvasWidth - qrSize - padding, y: canvasHeight - qrSize - padding };
+        }
+    }
+
+    function generateQRPreview() {
+        const sampleData = 'Sample-Name-001';
+        const qr = generateQRCode(sampleData, qrCodeSettings.size);
+        
+        const modal = document.getElementById('qr-preview-modal');
+        const container = document.getElementById('qr-preview-container');
+        
+        if (container) {
+            container.innerHTML = '';
+            container.appendChild(qr);
+        }
+        
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    // ==========================================
+    // NEW FEATURE 3: ANALYTICS DASHBOARD 📊
+    // ==========================================
+    
+    function initAnalytics() {
+        updateAnalyticsUI();
+        
+        document.getElementById('view-analytics-btn')?.addEventListener('click', openAnalyticsModal);
+        document.getElementById('export-analytics-btn')?.addEventListener('click', exportAnalytics);
+        document.getElementById('clear-analytics-btn')?.addEventListener('click', clearAnalytics);
+    }
+
+    function recordGeneration(count, format) {
+        analytics.totalGenerated += count;
+        analytics.history.push({
+            date: new Date().toISOString(),
+            count: count,
+            format: format,
+            template: textElements.length > 0 ? 'Custom' : 'Default'
+        });
+        
+        // Keep only last 100 records
+        if (analytics.history.length > 100) {
+            analytics.history = analytics.history.slice(-100);
+        }
+        
+        localStorage.setItem('certAnalytics', JSON.stringify(analytics));
+        updateAnalyticsUI();
+    }
+
+    function updateAnalyticsUI() {
+        const totalEl = document.getElementById('analytics-total');
+        const todayEl = document.getElementById('analytics-today');
+        const weekEl = document.getElementById('analytics-week');
+        const chartEl = document.getElementById('analytics-chart');
+        
+        if (totalEl) totalEl.textContent = analytics.totalGenerated.toLocaleString();
+        
+        // Calculate today's count
+        const today = new Date().toDateString();
+        const todayCount = analytics.history.filter(h => new Date(h.date).toDateString() === today)
+            .reduce((sum, h) => sum + h.count, 0);
+        if (todayEl) todayEl.textContent = todayCount.toLocaleString();
+        
+        // Calculate this week's count
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekCount = analytics.history.filter(h => new Date(h.date) > weekAgo)
+            .reduce((sum, h) => sum + h.count, 0);
+        if (weekEl) weekEl.textContent = weekCount.toLocaleString();
+        
+        // Simple bar chart
+        if (chartEl) {
+            drawSimpleChart(chartEl, analytics.history);
+        }
+    }
+
+    function drawSimpleChart(container, history) {
+        // Group by date (last 7 days)
+        const days = {};
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            days[d.toLocaleDateString('id-ID', {weekday:'short'})] = 0;
+        }
+        
+        history.forEach(h => {
+            const date = new Date(h.date);
+            const dayKey = date.toLocaleDateString('id-ID', {weekday:'short'});
+            if (days.hasOwnProperty(dayKey)) {
+                days[dayKey] += h.count;
+            }
+        });
+        
+        const max = Math.max(...Object.values(days), 1);
+        const bars = Object.entries(days).map(([day, count]) => {
+            const height = (count / max) * 100;
+            return `
+                <div class="chart-bar-wrapper">
+                    <div class="chart-bar" style="height: ${height}%">
+                        <span class="bar-value">${count}</span>
+                    </div>
+                    <span class="bar-label">${day}</span>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = `<div class="simple-chart">${bars}</div>`;
+    }
+
+    function openAnalyticsModal() {
+        const modal = document.getElementById('analytics-modal');
+        if (modal) {
+            updateAnalyticsUI();
+            modal.classList.remove('hidden');
+        }
+    }
+
+    function exportAnalytics() {
+        const data = {
+            exportDate: new Date().toISOString(),
+            analytics: analytics,
+            summary: {
+                total: analytics.totalGenerated,
+                records: analytics.history.length
+            }
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `analytics-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function clearAnalytics() {
+        if (!confirm('Hapus semua data analytics?')) return;
+        analytics = { totalGenerated: 0, history: [] };
+        localStorage.removeItem('certAnalytics');
+        updateAnalyticsUI();
+    }
+
+    // ==========================================
+    // NEW FEATURE 4: BATCH STYLE EDITOR 🎨
+    // ==========================================
+    
+    function initBatchStyleEditor() {
+        const targetSelect = document.getElementById('batch-target');
+        const propertySelect = document.getElementById('batch-property');
+        const valueInput = document.getElementById('batch-value');
+        const applyBtn = document.getElementById('batch-apply-btn');
+        const previewBtn = document.getElementById('batch-preview-btn');
+        
+        if (applyBtn) {
+            applyBtn.addEventListener('click', applyBatchStyle);
+        }
+        
+        if (previewBtn) {
+            previewBtn.addEventListener('click', previewBatchStyle);
+        }
+        
+        // Populate property select
+        if (propertySelect) {
+            const properties = [
+                {value: 'fontSize', label: 'Ukuran Font'},
+                {value: 'fontFamily', label: 'Font Family'},
+                {value: 'color', label: 'Warna'},
+                {value: 'bold', label: 'Bold (true/false)'},
+                {value: 'italic', label: 'Italic (true/false)'},
+                {value: 'align', label: 'Alignment (left/center/right)'},
+                {value: 'transform', label: 'Transform (none/uppercase/titlecase)'}
+            ];
+            
+            propertySelect.innerHTML = properties.map(p => 
+                `<option value="${p.value}">${p.label}</option>`
+            ).join('');
+        }
+    }
+
+    function applyBatchStyle() {
+        const target = document.getElementById('batch-target')?.value || 'all';
+        const property = document.getElementById('batch-property')?.value;
+        let value = document.getElementById('batch-value')?.value;
+        
+        if (!property || value === '') {
+            showStatus('bulk-status', 'Pilih property dan masukkan nilai', 'error');
+            return;
+        }
+        
+        // Convert value types
+        if (property === 'fontSize') value = parseInt(value);
+        if (property === 'bold' || property === 'italic') value = value === 'true' || value === '1';
+        
+        let affected = 0;
+        
+        textElements.forEach((el, index) => {
+            let shouldApply = false;
+            
+            switch(target) {
+                case 'all': shouldApply = true; break;
+                case 'selected': shouldApply = index === selectedTextIndex; break;
+                case 'unlinked': shouldApply = !el.dataLink; break;
+                case 'linked': shouldApply = !!el.dataLink; break;
+            }
+            
+            if (shouldApply) {
+                el[property] = value;
+                affected++;
+            }
+        });
+        
+        redrawCanvas();
+        updateToolbarValues();
+        showStatus('bulk-status', `✅ ${affected} elemen diupdate!`, 'success');
+    }
+
+    function previewBatchStyle() {
+        // Create temporary preview without applying
+        const property = document.getElementById('batch-property')?.value;
+        let value = document.getElementById('batch-value')?.value;
+        
+        if (!property || !value) return;
+        
+        // Store original values
+        const originals = textElements.map(el => ({...el}));
+        
+        // Apply temporarily
+        applyBatchStyle();
+        
+        // Show modal with before/after
+        setTimeout(() => {
+            // Restore after 3 seconds
+            textElements = originals;
+            redrawCanvas();
+            showStatus('bulk-status', 'Preview selesai (style dikembalikan)', 'info');
+        }, 3000);
+    }
+
+    // ==========================================
+    // NEW FEATURE 5: PREVIEW MODE 🔍
+    // ==========================================
+    
+    function initPreviewMode() {
+        const openPreviewBtn = document.getElementById('open-preview-btn');
+        const closePreviewBtn = document.getElementById('close-preview-modal');
+        const prevBtn = document.getElementById('preview-prev');
+        const nextBtn = document.getElementById('preview-next');
+        const useDataBtn = document.getElementById('use-preview-data');
+        
+        if (openPreviewBtn) {
+            openPreviewBtn.addEventListener('click', openPreviewModal);
+        }
+        
+        if (closePreviewBtn) {
+            closePreviewBtn.addEventListener('click', closePreviewModal);
+        }
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => navigatePreview(-1));
+        }
+        
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => navigatePreview(1));
+        }
+        
+        if (useDataBtn) {
+            useDataBtn.addEventListener('click', usePreviewDataForBulk);
+        }
+    }
+
+    function openPreviewModal() {
+        if (!certificateImage) {
+            showStatus('bulk-status', 'Upload desain terlebih dahulu!', 'error');
+            return;
+        }
+        
+        if (!bulkData || bulkData.length === 0) {
+            showStatus('bulk-status', 'Upload data Excel terlebih dahulu!', 'error');
+            return;
+        }
+        
+        previewData = bulkData;
+        previewIndex = 0;
+        
+        updatePreviewUI();
+        
+        const modal = document.getElementById('preview-modal');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function closePreviewModal() {
+        const modal = document.getElementById('preview-modal');
+        if (modal) modal.classList.add('hidden');
+        
+        // Restore original canvas
+        redrawCanvas();
+    }
+
+    function updatePreviewUI() {
+        const counter = document.getElementById('preview-counter');
+        const canvas = document.getElementById('preview-canvas');
+        
+        if (counter) {
+            counter.textContent = `${previewIndex + 1} / ${previewData.length}`;
+        }
+        
+        // Generate certificate with current preview data
+        generateCertificateWithData(previewData[previewIndex]);
+        
+        // Copy to preview canvas
+        if (canvas) {
+            const pCtx = canvas.getContext('2d');
+            canvas.width = canvas.width;
+            canvas.height = canvas.height;
+            pCtx.drawImage(canvas, 0, 0);
+        }
+    }
+
+    function navigatePreview(direction) {
+        previewIndex += direction;
+        
+        if (previewIndex < 0) previewIndex = previewData.length - 1;
+        if (previewIndex >= previewData.length) previewIndex = 0;
+        
+        updatePreviewUI();
+    }
+
+    function usePreviewDataForBulk() {
+        // Confirm this data for bulk generation
+        showStatus('bulk-status', `✅ Data preview siap! ${previewData.length} sertifikat akan dibuat.`, 'success');
+        closePreviewModal();
+        
+        // Scroll to bulk section
+        document.getElementById('bulk-section')?.scrollIntoView({behavior: 'smooth'});
+    }
+
+    // ==========================================
+    // SECTION 2: CANVAS & TEXT EDITING (Updated with QR)
     // ==========================================
     
     function redrawCanvas() {
@@ -183,9 +820,32 @@ document.addEventListener('DOMContentLoaded', function() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(certificateImage, 0, 0);
         
+        // Draw text elements
         textElements.forEach((textEl, index) => {
             drawTextElement(textEl, index === selectedTextIndex);
         });
+        
+        // NEW: Draw QR Code if enabled
+        if (qrCodeSettings.enabled) {
+            drawQRCodeOnCanvas();
+        }
+    }
+
+    function drawQRCodeOnCanvas() {
+        // Generate sample QR or use preview data
+        let qrData = 'CERTIFICATE-VERIFICATION';
+        if (previewData && previewData[previewIndex]) {
+            const row = previewData[previewIndex];
+            qrData = qrCodeSettings.dataPattern
+                .replace('{{name}}', row[0] || 'Unknown')
+                .replace('{{id}}', previewIndex + 1)
+                .replace('{{date}}', new Date().toISOString().split('T')[0]);
+        }
+        
+        const qrCanvas = generateQRCode(qrData, qrCodeSettings.size);
+        const pos = getQRPosition(qrCodeSettings.position, canvas.width, canvas.height, qrCodeSettings.size);
+        
+        ctx.drawImage(qrCanvas, pos.x, pos.y);
     }
 
     function drawTextElement(textEl, isSelected) {
@@ -240,7 +900,6 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.setLineDash([5, 5]);
             ctx.strokeRect(boxX, startY - textEl.fontSize/2 - padding, boxWidth, totalHeight + (padding * 2));
             
-            // Draw resize handle
             ctx.fillStyle = '#1a237e';
             ctx.setLineDash([]);
             ctx.fillRect(boxX + boxWidth - 6, startY + totalHeight/2 + padding - 6, 12, 12);
@@ -268,7 +927,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleCanvasMouseDown(e) {
         const pos = getMousePos(e);
         
-        // Check if clicking on text
         for (let i = textElements.length - 1; i >= 0; i--) {
             if (isPointInText(pos.x, pos.y, textElements[i])) {
                 selectedTextIndex = i;
@@ -355,7 +1013,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const deleteTextContainer = document.getElementById('delete-text-container');
     const textEditControls = document.getElementById('text-edit-controls');
     
-    // Text inputs
     const textInput = document.getElementById('text-input');
     const fontFamily = document.getElementById('font-family');
     const fontSize = document.getElementById('font-size');
@@ -589,14 +1246,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 textElements: textElements,
                 canvasWidth: canvas ? canvas.width : 0,
                 canvasHeight: canvas ? canvas.height : 0,
-                version: '1.0'
+                qrSettings: qrCodeSettings,
+                version: '2.0 Pro'
             };
             
             const blob = new Blob([JSON.stringify(template, null, 2)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'certificate-template.json';
+            a.download = 'certificate-template-pro.json';
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -618,10 +1276,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     const template = JSON.parse(event.target.result);
                     textElements = template.textElements || [];
+                    
+                    // Restore QR settings if present
+                    if (template.qrSettings) {
+                        qrCodeSettings = template.qrSettings;
+                    }
+                    
                     selectedTextIndex = -1;
                     updateToolbar();
                     redrawCanvas();
-                    alert('Template berhasil dimuat!');
+                    
+                    // Update QR UI
+                    document.getElementById('qr-enable').checked = qrCodeSettings.enabled;
+                    document.getElementById('qr-pattern').value = qrCodeSettings.dataPattern;
+                    document.getElementById('qr-position').value = qrCodeSettings.position;
+                    document.getElementById('qr-size').value = qrCodeSettings.size;
+                    
+                    alert('Template Pro berhasil dimuat!');
                 } catch (err) {
                     alert('Error membaca template: ' + err.message);
                 }
@@ -652,7 +1323,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
-    // SECTION 7: BULK GENERATION
+    // SECTION 7: BULK GENERATION (Updated with Analytics)
     // ==========================================
     
     const bulkFileUpload = document.getElementById('bulk-file-upload');
@@ -721,7 +1392,6 @@ document.addEventListener('DOMContentLoaded', function() {
         bulkHeaders = data[0];
         bulkData = data.slice(1);
         
-        // Populate data link dropdown
         if (dataLinkSelect) {
             dataLinkSelect.innerHTML = '<option value="">-- Tidak dihubungkan --</option>';
             bulkHeaders.forEach((header, index) => {
@@ -732,10 +1402,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Enable generate button
         if (generateBulkBtn) {
             generateBulkBtn.disabled = false;
         }
+        
+        // NEW: Update preview data
+        previewData = bulkData;
     }
 
     if (dataLinkSelect) {
@@ -767,6 +1439,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     await generateBulkPNG();
                 }
+                
+                // NEW: Record analytics
+                recordGeneration(bulkData.length, format);
+                
                 showStatus('bulk-status', '✅ Semua sertifikat berhasil dibuat!', 'success');
             } catch (err) {
                 showStatus('bulk-status', '❌ Error: ' + err.message, 'error');
@@ -788,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', function() {
             folder.file(`sertifikat_${i + 1}.png`, base64Data, {base64: true});
             
             if (i % 10 === 0) {
-                showStatus('bulk-status', `Memproses... ${i + 1}/${bulkData.length}`, 'info');
+                showStatus('bulk-status', `Memproses... ${i + 1}/${bulkData.length}`, 'info', 0);
                 await new Promise(r => setTimeout(r, 10));
             }
         }
@@ -825,7 +1501,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 zip.file(`sertifikat_${i + 1}.pdf`, pdfBlob);
                 
                 if (i % 10 === 0) {
-                    showStatus('bulk-status', `Memproses... ${i + 1}/${bulkData.length}`, 'info');
+                    showStatus('bulk-status', `Memproses... ${i + 1}/${bulkData.length}`, 'info', 0);
                     await new Promise(r => setTimeout(r, 10));
                 }
             }
@@ -850,7 +1526,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
                 
                 if (i % 10 === 0) {
-                    showStatus('bulk-status', `Memproses... ${i + 1}/${bulkData.length}`, 'info');
+                    showStatus('bulk-status', `Memproses... ${i + 1}/${bulkData.length}`, 'info', 0);
                     await new Promise(r => setTimeout(r, 10));
                 }
             }
@@ -904,6 +1580,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             ctx.restore();
         });
+        
+        // Draw QR if enabled
+        if (qrCodeSettings.enabled) {
+            drawQRCodeOnCanvas();
+        }
     }
 
     function createPDFfromCanvas() {
@@ -939,7 +1620,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const clearSelectionBtn = document.getElementById('clear-selection-btn');
     const selectedColumnsInfo = document.getElementById('selected-columns-info');
 
-    // Drag & Drop handlers
     if (cleanerDropZone) {
         cleanerDropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -1013,11 +1693,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const headers = data[0];
         const totalCols = headers.length;
         
-        // Reset selected columns
         selectedNameColumns = [];
         detectedNameColumns = [];
         
-        // Detect all name columns automatically
         headers.forEach((header, index) => {
             if (isNameColumn(header)) {
                 detectedNameColumns.push({
@@ -1028,16 +1706,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Populate column select with checkboxes (multiple selection)
         populateColumnSelect(headers);
-        
-        // Update stats
         updateCleanerStats(totalCols);
-        
-        // Auto-select detected columns
         updateColumnSelection();
         
-        // Update preview if columns detected
         if (selectedNameColumns.length > 0) {
             updateCleanerPreview();
             updateSelectedColumnsInfo();
@@ -1049,7 +1721,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         nameColumnSelect.innerHTML = '';
         
-        // Add "Select All" option
         const selectAllDiv = document.createElement('div');
         selectAllDiv.className = 'column-option select-all';
         selectAllDiv.innerHTML = `
@@ -1061,7 +1732,6 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         nameColumnSelect.appendChild(selectAllDiv);
         
-        // Add individual columns
         headers.forEach((header, index) => {
             const isDetected = detectedNameColumns.some(d => d.index === index);
             const isSelected = selectedNameColumns.includes(index);
@@ -1079,7 +1749,6 @@ document.addEventListener('DOMContentLoaded', function() {
             nameColumnSelect.appendChild(div);
         });
         
-        // Add event listeners
         const selectAllCheckbox = document.getElementById('select-all-columns');
         if (selectAllCheckbox) {
             selectAllCheckbox.addEventListener('change', function() {
@@ -1150,21 +1819,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         cleanerPreviewBody.innerHTML = '';
-        
-        // Show max 10 rows
         const rowsToShow = Math.min(excelData.length - 1, 10);
         
         for (let i = 1; i <= rowsToShow; i++) {
             const row = excelData[i];
-            
-            // Collect all names from selected columns (non-empty)
             const names = [];
             selectedNameColumns.forEach(colIndex => {
                 const name = cleanName(row[colIndex]);
                 if (name) names.push(name);
             });
             
-            // Flatten: each name gets its own row
             if (names.length === 0) {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -1195,13 +1859,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    // Auto detect button
     if (autoDetectBtn) {
         autoDetectBtn.addEventListener('click', function() {
             if (!excelData) return;
@@ -1224,7 +1881,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Clear selection button
     if (clearSelectionBtn) {
         clearSelectionBtn.addEventListener('click', function() {
             selectedNameColumns = [];
@@ -1236,7 +1892,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Download handler for cleaner
     if (downloadCleanBtn) {
         downloadCleanBtn.addEventListener('click', function() {
             if (!excelData || selectedNameColumns.length === 0) {
@@ -1247,25 +1902,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const format = outputFormat ? outputFormat.value : 'xlsx';
             const filename = outputFilename ? (outputFilename.value || 'nama_bersih') : 'nama_bersih';
             
-            // Create clean data - SMART: flatten all names into single column
             const cleanData = [];
-            cleanData.push(['Nama']); // Header
+            cleanData.push(['Nama']);
             
             let totalNames = 0;
             
             for (let i = 1; i < excelData.length; i++) {
                 const row = excelData[i];
-                
-                // Collect all names from selected columns
                 const names = [];
                 selectedNameColumns.forEach(colIndex => {
                     const name = cleanName(row[colIndex]);
                     if (name) names.push(name);
                 });
                 
-                // Add each name as separate row (flattened)
                 if (names.length === 0) {
-                    cleanData.push(['']); // Keep empty row for structure
+                    cleanData.push(['']);
                 } else {
                     names.forEach(name => {
                         cleanData.push([name]);
@@ -1274,16 +1925,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // Create workbook
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(cleanData);
-            
-            // Set column width
             ws['!cols'] = [{wch: 50}];
-            
             XLSX.utils.book_append_sheet(wb, ws, "Nama Bersih");
 
-            // Download
             const ext = format === 'csv' ? '.csv' : '.xlsx';
             try {
                 XLSX.writeFile(wb, filename + ext);
@@ -1339,9 +1985,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==========================================
+    // MODAL CLOSE HANDLERS
+    // ==========================================
+    
+    // Close modals when clicking outside
+    window.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal-overlay')) {
+            e.target.classList.add('hidden');
+        }
+    });
+
+    // Close button handlers for all modals
+    document.querySelectorAll('.modal-close-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.closest('.modal-overlay')?.classList.add('hidden');
+        });
+    });
+
+    // ==========================================
     // INITIALIZATION
     // ==========================================
     
-    console.log('Certificate Generator + Smart Excel Cleaner initialized!');
+    console.log('🚀 Certificate Generator Pro v2.0 initialized!');
+    console.log('Features: Image Library, QR Code, Analytics, Batch Style, Preview Mode');
     
 }); // End DOMContentLoaded
