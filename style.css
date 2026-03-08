@@ -1368,6 +1368,12 @@ canvas {
     .batch-controls .control-row {
         grid-template-columns: 1fr;
     }
+
+    @keyframes highlight {
+    0% { background-color: #fff3cd; }
+    50% { background-color: #ffeaa7; }
+    100% { background-color: #fff; }
+}
     
     .library-grid {
         grid-template-columns: repeat(2, 1fr);
